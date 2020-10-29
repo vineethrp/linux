@@ -483,36 +483,32 @@ static inline u64 cfs_rq_min_vruntime(struct cfs_rq *cfs_rq)
 }
 
 #ifdef CONFIG_FAIR_GROUP_SCHED
+static void se_fi_update(struct sched_entity *se, unsigned int fi_seq, bool forceidle);
 bool cfs_prio_less(struct task_struct *a, struct task_struct *b)
 {
-	bool samecpu = task_cpu(a) == task_cpu(b);
+	struct rq *rq = task_rq(a);
 	struct sched_entity *sea = &a->se;
 	struct sched_entity *seb = &b->se;
 	struct cfs_rq *cfs_rqa;
 	struct cfs_rq *cfs_rqb;
 	s64 delta;
 
-	if (samecpu) {
-		/* vruntime is per cfs_rq */
-		while (!is_same_group(sea, seb)) {
-			int sea_depth = sea->depth;
-			int seb_depth = seb->depth;
+	SCHED_WARN_ON(task_rq(b)->core != rq->core);
 
-			if (sea_depth >= seb_depth)
-				sea = parent_entity(sea);
-			if (sea_depth <= seb_depth)
-				seb = parent_entity(seb);
-		}
+	while (sea->cfs_rq->tg != seb->cfs_rq->tg) {
+		int sea_depth = sea->depth;
+		int seb_depth = seb->depth;
 
-		delta = (s64)(sea->vruntime - seb->vruntime);
-		goto out;
+		if (sea_depth >= seb_depth)
+			sea = parent_entity(sea);
+		if (sea_depth <= seb_depth)
+			seb = parent_entity(seb);
 	}
 
-	/* crosscpu: compare root level se's vruntime to decide priority */
-	while (sea->parent)
-		sea = sea->parent;
-	while (seb->parent)
-		seb = seb->parent;
+	if (rq->core->core_forceidle) {
+		se_fi_update(sea, rq->core->core_forceidle_seq, true);
+		se_fi_update(seb, rq->core->core_forceidle_seq, true);
+	}
 
 	cfs_rqa = sea->cfs_rq;
 	cfs_rqb = seb->cfs_rq;
@@ -520,7 +516,7 @@ bool cfs_prio_less(struct task_struct *a, struct task_struct *b)
 	/* normalize vruntime WRT their rq's base */
 	delta = (s64)(sea->vruntime - seb->vruntime) +
 		(s64)(cfs_rqb->min_vruntime_fi - cfs_rqa->min_vruntime_fi);
-out:
+
 	return delta > 0;
 }
 #endif /* CONFIG_FAIR_GROUP_SCHED */
@@ -11102,6 +11098,32 @@ static void propagate_entity_cfs_rq(struct sched_entity *se)
 		update_load_avg(cfs_rq, se, UPDATE_TG);
 	}
 }
+
+static void se_fi_update(struct sched_entity *se, unsigned int fi_seq, bool forceidle)
+{
+	for_each_sched_entity(se) {
+		struct cfs_rq *cfs_rq = cfs_rq_of(se);
+
+		if (forceidle) {
+			if (cfs_rq->forceidle_seq == fi_seq)
+				break;
+			cfs_rq->forceidle_seq = fi_seq;
+		}
+
+		cfs_rq->min_vruntime_fi = cfs_rq->min_vruntime;
+	}
+}
+
+void task_vruntime_update(struct rq *rq, struct task_struct *p)
+{
+	struct sched_entity *se = &p->se;
+
+	if (p->sched_class != &fair_sched_class)
+		return;
+
+	se_fi_update(se, rq->core->core_forceidle_seq, rq->core->core_forceidle);
+}
+
 #else
 static void propagate_entity_cfs_rq(struct sched_entity *se) { }
 #endif
