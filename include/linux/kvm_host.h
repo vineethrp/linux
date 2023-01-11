@@ -2099,6 +2099,8 @@ extern unsigned int halt_poll_ns_grow;
 extern unsigned int halt_poll_ns_grow_start;
 extern unsigned int halt_poll_ns_shrink;
 
+extern bool kvm_vcpu_sched;
+
 struct kvm_device {
 	const struct kvm_device_ops *ops;
 	struct kvm *kvm;
