@@ -2446,4 +2446,24 @@ static inline void sched_core_fork(struct task_struct *p) { }
 
 extern void sched_set_stop_task(int cpu, struct task_struct *stop);
 
+DECLARE_STATIC_KEY_FALSE(sched_kvm_vcpu_sched);
+
+extern unsigned long sched_kvm_vcpu_boosted_pa(void);
+
+static inline bool sched_kvm_vcpu_sched_enabled(void) {
+	return static_branch_unlikely(&sched_kvm_vcpu_sched);
+}
+
+static inline void sched_enable_kvm_vcpu_sched(void) {
+	static_branch_enable(&sched_kvm_vcpu_sched);
+}
+
+typedef enum {
+	VCPU_BOOST_UNINITIALIZED = 0,
+	VCPU_BOOST_NORMAL,
+	VCPU_BOOST_BOOSTED
+} sched_vcpu_boost_state;
+
+extern void sched_kvm_boost_vcpu(void);
+extern void sched_kvm_unboost_vcpu(void);
 #endif
