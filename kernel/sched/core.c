@@ -47,6 +47,7 @@
 #include <linux/kallsyms.h>
 #include <linux/kcov.h>
 #include <linux/kprobes.h>
+#include <linux/kvm_para.h>
 #include <linux/llist_api.h>
 #include <linux/mmu_context.h>
 #include <linux/mmzone.h>
@@ -150,6 +151,32 @@ __read_mostly int sysctl_resched_latency_warn_once = 1;
 const_debug unsigned int sysctl_sched_nr_migrate = SCHED_NR_MIGRATE_BREAK;
 
 __read_mostly int scheduler_running;
+
+DEFINE_STATIC_KEY_FALSE(sched_kvm_vcpu_sched);
+
+DEFINE_PER_CPU_DECRYPTED(struct vcpu_sched_data, vsd) __aligned(64);
+
+unsigned long sched_kvm_vsd_pa(void)
+{
+	struct vcpu_sched_data *_vsd = this_cpu_ptr(&vsd);
+
+	return slow_virt_to_phys(_vsd);
+}
+EXPORT_SYMBOL(sched_kvm_vsd_pa);
+
+void sched_kvm_boost_vcpu(void)
+{
+	if (this_cpu_read(vsd.boost_status) == VCPU_BOOST_NORMAL)
+		WARN_ON(kvm_hypercall1(KVM_HC_VCPU_SCHED, KVM_VCPU_SCHED_BOOST));
+}
+EXPORT_SYMBOL(sched_kvm_boost_vcpu);
+
+void sched_kvm_unboost_vcpu(void)
+{
+	if (this_cpu_read(vsd.boost_status) == VCPU_BOOST_BOOSTED)
+		WARN_ON(kvm_hypercall1(KVM_HC_VCPU_SCHED, KVM_VCPU_SCHED_UNBOOST));
+}
+EXPORT_SYMBOL(sched_kvm_unboost_vcpu);
 
 #ifdef CONFIG_SCHED_CORE
 
