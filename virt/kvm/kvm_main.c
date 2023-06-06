@@ -3685,9 +3685,13 @@ EXPORT_SYMBOL_GPL(kvm_vcpu_set_sched);
 /*
  * Kick a sleeping VCPU, or a guest VCPU in guest mode, into host kernel mode.
  */
-void kvm_vcpu_kick(struct kvm_vcpu *vcpu)
+void kvm_vcpu_kick_boost(struct kvm_vcpu *vcpu, bool boost)
 {
 	int me, cpu;
+
+	if (boost) {
+		kvm_vcpu_set_sched(vcpu, boost);
+	}
 
 	if (kvm_vcpu_wake_up(vcpu))
 		return;
@@ -3719,6 +3723,12 @@ void kvm_vcpu_kick(struct kvm_vcpu *vcpu)
 	}
 out:
 	put_cpu();
+}
+EXPORT_SYMBOL_GPL(kvm_vcpu_kick_boost);
+
+void kvm_vcpu_kick(struct kvm_vcpu *vcpu)
+{
+	kvm_vcpu_kick_boost(vcpu, false);
 }
 EXPORT_SYMBOL_GPL(kvm_vcpu_kick);
 #endif /* !CONFIG_S390 */
