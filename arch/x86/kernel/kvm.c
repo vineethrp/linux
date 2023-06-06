@@ -377,6 +377,13 @@ static void kvm_guest_cpu_init(void)
 		wrmsrl(MSR_KVM_PV_EOI_EN, pa);
 	}
 
+#ifdef CONFIG_KVM_VCPU_BOOST_GUEST
+	if (sched_kvm_vcpu_sched_enabled()) {
+		unsigned long pa = sched_kvm_vsd_pa() | KVM_MSR_ENABLED;
+		wrmsrl(MSR_KVM_SCHED_REGION, pa);
+	}
+#endif
+
 	if (has_steal_clock)
 		kvm_register_steal_time();
 }
@@ -831,6 +838,14 @@ static void __init kvm_guest_init(void)
 		static_branch_enable(&kvm_async_pf_enabled);
 		alloc_intr_gate(HYPERVISOR_CALLBACK_VECTOR, asm_sysvec_kvm_asyncpf_interrupt);
 	}
+
+#ifdef CONFIG_KVM_VCPU_BOOST_GUEST
+	if (kvm_para_has_feature(KVM_FEATURE_VCPU_SCHED)) {
+		pr_info("KVM host has GUEST_VCPU_SCHED!\n");
+		sched_enable_kvm_vcpu_sched();
+	} else
+		pr_info("KVM host does not support GUEST_VCPU_SCHED!\n");
+#endif
 
 #ifdef CONFIG_SMP
 	if (pv_tlb_flush_supported()) {
