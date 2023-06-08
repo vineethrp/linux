@@ -266,6 +266,9 @@ static void do_idle(void)
 			arch_cpu_idle_dead();
 		}
 
+		if (sched_kvm_vcpu_sched_enabled())
+			sched_kvm_unboost_vcpu();
+
 		arch_cpu_idle_enter();
 		rcu_nocb_flush_deferred_wakeup();
 
