@@ -318,6 +318,11 @@ noinstr irqentry_state_t irqentry_enter(struct pt_regs *regs)
 		.exit_rcu = false,
 	};
 
+	instrumentation_begin();
+	if (sched_kvm_vcpu_sched_enabled())
+		sched_kvm_boost_vcpu();
+	instrumentation_end();
+
 	if (user_mode(regs)) {
 		irqentry_enter_from_user_mode(regs);
 		return ret;
@@ -443,6 +448,16 @@ noinstr void irqentry_exit(struct pt_regs *regs, irqentry_state_t state)
 		if (state.exit_rcu)
 			ct_irq_exit();
 	}
+
+	instrumentation_begin();
+	/*
+	 * On irq exit, request a deboost from hypervisor if no softirq pending
+	 * and current task is not RT and !need_resched.
+	 */
+	if (sched_kvm_vcpu_sched_enabled() && !local_softirq_pending() &&
+			!need_resched() && !task_is_realtime(current))
+		sched_kvm_unboost_vcpu();
+	instrumentation_end();
 }
 
 irqentry_state_t noinstr irqentry_nmi_enter(struct pt_regs *regs)
@@ -460,6 +475,9 @@ irqentry_state_t noinstr irqentry_nmi_enter(struct pt_regs *regs)
 	kmsan_unpoison_entry_regs(regs);
 	trace_hardirqs_off_finish();
 	ftrace_nmi_enter();
+
+	if (sched_kvm_vcpu_sched_enabled())
+		sched_kvm_boost_vcpu();
 	instrumentation_end();
 
 	return irq_state;
@@ -473,6 +491,10 @@ void noinstr irqentry_nmi_exit(struct pt_regs *regs, irqentry_state_t irq_state)
 		trace_hardirqs_on_prepare();
 		lockdep_hardirqs_on_prepare();
 	}
+
+	if (sched_kvm_vcpu_sched_enabled() && !local_softirq_pending() &&
+			!need_resched() && !task_is_realtime(current))
+		sched_kvm_unboost_vcpu();
 	instrumentation_end();
 
 	ct_nmi_exit();
