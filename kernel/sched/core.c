@@ -164,20 +164,14 @@ EXPORT_SYMBOL(sched_kvm_vcpu_boosted_pa);
 
 void sched_kvm_boost_vcpu(void)
 {
-	if (!sched_kvm_vcpu_sched_enabled())
-		return;
-
-	if (!this_cpu_read(vcpu_boosted))
+	if (this_cpu_read(vcpu_boosted) == VCPU_BOOST_NORMAL)
 		WARN_ON(kvm_hypercall1(KVM_HC_VCPU_SCHED, KVM_VCPU_SCHED_RT));
 }
 EXPORT_SYMBOL(sched_kvm_boost_vcpu);
 
 void sched_kvm_unboost_vcpu(void)
 {
-	if (!sched_kvm_vcpu_sched_enabled())
-		return;
-
-	if (this_cpu_read(vcpu_boosted))
+	if (this_cpu_read(vcpu_boosted) == VCPU_BOOST_BOOSTED)
 		WARN_ON(kvm_hypercall1(KVM_HC_VCPU_SCHED, KVM_VCPU_SCHED_NORMAL));
 }
 EXPORT_SYMBOL(sched_kvm_unboost_vcpu);
@@ -2111,6 +2105,16 @@ static inline void enqueue_task(struct rq *rq, struct task_struct *p, int flags)
 
 	uclamp_rq_inc(rq, p);
 	p->sched_class->enqueue_task(rq, p, flags);
+
+	/*
+	 * TODO: currently we do not have a mechanism to hypercall for a different cpu.
+	 * So we boost only if this enqueue happens for this cpu.
+	 * We need to boost remote cpus as a complete fix.
+	 * As of now boosting of rq->cpu happens pnly during __schedule.
+	 */
+	if (sched_kvm_vcpu_sched_enabled() && this_rq() == rq &&
+			p->sched_class <= &rt_sched_class)
+		sched_kvm_boost_vcpu();
 
 	if (sched_core_enabled(rq))
 		sched_core_enqueue(rq, p);
@@ -6667,6 +6671,13 @@ static void __sched notrace __schedule(unsigned int sched_mode)
 #ifdef CONFIG_SCHED_DEBUG
 	rq->last_seen_need_resched_ns = 0;
 #endif
+	if (sched_kvm_vcpu_sched_enabled()) {
+	       if (next->sched_class <= &rt_sched_class) {
+			sched_kvm_boost_vcpu();
+	       } else if (next->sched_class == &fair_sched_class) {
+			sched_kvm_unboost_vcpu();
+	       }
+	}
 
 	if (likely(prev != next)) {
 		rq->nr_switches++;
