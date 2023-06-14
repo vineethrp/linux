@@ -9780,6 +9780,30 @@ static int complete_hypercall_exit(struct kvm_vcpu *vcpu)
 	return kvm_skip_emulated_instruction(vcpu);
 }
 
+static void record_vcpu_boost_status(struct kvm_vcpu *vcpu)
+{
+	u64 val = vcpu->arch.vcpu_sched.rt_boosted ? 2 : 1;
+
+	pagefault_disable();
+	kvm_write_guest_cached(vcpu->kvm, &vcpu->arch.vcpu_sched.data,
+		&val, sizeof(val));
+	pagefault_enable();
+}
+
+void kvm_set_vcpu_boosted(struct kvm_vcpu *vcpu, bool boosted)
+{
+	// Only for testing. Change to WARN_ON
+	BUG_ON(!vcpu->arch.vcpu_sched.enabled);
+
+	if (!vcpu->arch.vcpu_sched.enabled)
+		return;
+
+	vcpu->arch.vcpu_sched.rt_boosted = boosted;
+
+	kvm_make_request(KVM_REQ_VCPU_BOOST_UPDATE, vcpu);
+}
+EXPORT_SYMBOL_GPL(kvm_set_vcpu_boosted);
+
 int kvm_emulate_hypercall(struct kvm_vcpu *vcpu)
 {
 	unsigned long nr, a0, a1, a2, a3, ret;
@@ -10563,6 +10587,10 @@ static int vcpu_enter_guest(struct kvm_vcpu *vcpu)
 		}
 		if (kvm_check_request(KVM_REQ_STEAL_UPDATE, vcpu))
 			record_steal_time(vcpu);
+
+		if (kvm_check_request(KVM_REQ_VCPU_BOOST_UPDATE, vcpu))
+			record_vcpu_boost_status(vcpu);
+
 #ifdef CONFIG_KVM_SMM
 		if (kvm_check_request(KVM_REQ_SMI, vcpu))
 			process_smi(vcpu);
