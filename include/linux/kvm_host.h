@@ -167,6 +167,9 @@ static inline bool is_error_page(struct page *page)
 #define KVM_REQ_VM_DEAD			(1 | KVM_REQUEST_WAIT | KVM_REQUEST_NO_WAKEUP)
 #define KVM_REQ_UNBLOCK			2
 #define KVM_REQ_DIRTY_RING_SOFT_FULL	3
+#ifdef CONFIG_KVM_VCPU_BOOST_HOST
+#define KVM_REQ_VCPU_BOOST_UPDATE	6
+#endif
 #define KVM_REQUEST_ARCH_BASE		8
 
 /*
@@ -1357,6 +1360,10 @@ int kvm_vcpu_yield_to(struct kvm_vcpu *target);
 void kvm_vcpu_on_spin(struct kvm_vcpu *vcpu, bool yield_to_kernel_mode);
 
 void kvm_flush_remote_tlbs(struct kvm *kvm);
+
+#ifdef CONFIG_KVM_VCPU_BOOST_HOST
+void kvm_set_vcpu_boosted(struct kvm_vcpu *vcpu, bool boosted);
+#endif
 
 #ifdef KVM_ARCH_NR_OBJS_PER_MEMORY_CACHE
 int kvm_mmu_topup_memory_cache(struct kvm_mmu_memory_cache *mc, int min);

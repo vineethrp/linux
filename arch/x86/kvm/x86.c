@@ -3859,6 +3859,23 @@ int kvm_set_msr_common(struct kvm_vcpu *vcpu, struct msr_data *msr_info)
 			return 1;
 		break;
 
+#ifdef CONFIG_KVM_VCPU_BOOST_HOST
+	case MSR_KVM_SCHED_REGION:
+		vcpu->arch.vcpu_sched.enabled = 0;
+		vcpu->arch.vcpu_sched.msr_val = data;
+
+		if (!(data & KVM_MSR_ENABLED))
+			break;
+
+		if (!kvm_gfn_to_hva_cache_init(vcpu->kvm,
+				&vcpu->arch.vcpu_sched.data, data & ~KVM_MSR_ENABLED,
+				sizeof(struct vcpu_sched_data))) {
+			vcpu->arch.vcpu_sched.enabled = 1;
+			kvm_set_vcpu_boosted(vcpu, false);
+		}
+		break;
+#endif
+
 	case MSR_KVM_POLL_CONTROL:
 		if (!guest_pv_has(vcpu, KVM_FEATURE_POLL_CONTROL))
 			return 1;
@@ -4216,6 +4233,11 @@ int kvm_get_msr_common(struct kvm_vcpu *vcpu, struct msr_data *msr_info)
 
 		msr_info->data = vcpu->arch.pv_eoi.msr_val;
 		break;
+#ifdef CONFIG_KVM_VCPU_BOOST_HOST
+	case MSR_KVM_SCHED_REGION:
+		msr_info->data = vcpu->arch.vcpu_sched.msr_val;
+		break;
+#endif
 	case MSR_KVM_POLL_CONTROL:
 		if (!guest_pv_has(vcpu, KVM_FEATURE_POLL_CONTROL))
 			return 1;
@@ -9780,6 +9802,29 @@ static int complete_hypercall_exit(struct kvm_vcpu *vcpu)
 	return kvm_skip_emulated_instruction(vcpu);
 }
 
+#ifdef CONFIG_KVM_VCPU_BOOST_HOST
+static void record_vcpu_boost_status(struct kvm_vcpu *vcpu)
+{
+	u64 val = kvm_arch_vcpu_boosted(&vcpu->arch) ? VCPU_BOOST_BOOSTED : VCPU_BOOST_NORMAL;
+
+	pagefault_disable();
+	kvm_write_guest_offset_cached(vcpu->kvm, &vcpu->arch.vcpu_sched.data,
+		&val, offsetof(struct vcpu_sched_data, boost_status), sizeof(u64));
+	pagefault_enable();
+}
+
+void kvm_set_vcpu_boosted(struct kvm_vcpu *vcpu, bool boosted)
+{
+	if (WARN_ON(!kvm_arch_vcpu_sched_enabled(&vcpu->arch)))
+		return;
+
+	kvm_arch_vcpu_set_boosted(&vcpu->arch, boosted);
+
+	kvm_make_request(KVM_REQ_VCPU_BOOST_UPDATE, vcpu);
+}
+EXPORT_SYMBOL_GPL(kvm_set_vcpu_boosted);
+#endif
+
 int kvm_emulate_hypercall(struct kvm_vcpu *vcpu)
 {
 	unsigned long nr, a0, a1, a2, a3, ret;
@@ -10563,6 +10608,12 @@ static int vcpu_enter_guest(struct kvm_vcpu *vcpu)
 		}
 		if (kvm_check_request(KVM_REQ_STEAL_UPDATE, vcpu))
 			record_steal_time(vcpu);
+
+#ifdef CONFIG_KVM_VCPU_BOOST_HOST
+		if (kvm_check_request(KVM_REQ_VCPU_BOOST_UPDATE, vcpu))
+			record_vcpu_boost_status(vcpu);
+#endif
+
 #ifdef CONFIG_KVM_SMM
 		if (kvm_check_request(KVM_REQ_SMI, vcpu))
 			process_smi(vcpu);
