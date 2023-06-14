@@ -3859,6 +3859,21 @@ int kvm_set_msr_common(struct kvm_vcpu *vcpu, struct msr_data *msr_info)
 			return 1;
 		break;
 
+	case MSR_KVM_SCHED_REGION:
+		vcpu->arch.vcpu_sched.enabled = 0;
+		vcpu->arch.vcpu_sched.msr_val = data;
+
+		if (!(data & KVM_MSR_ENABLED))
+			break;
+
+		if (!kvm_gfn_to_hva_cache_init(vcpu->kvm,
+				&vcpu->arch.vcpu_sched.data, data & ~KVM_MSR_ENABLED,
+				sizeof(struct vcpu_sched_data))) {
+			vcpu->arch.vcpu_sched.enabled = 1;
+			kvm_set_vcpu_boosted(vcpu, false);
+		}
+		break;
+
 	case MSR_KVM_POLL_CONTROL:
 		if (!guest_pv_has(vcpu, KVM_FEATURE_POLL_CONTROL))
 			return 1;
@@ -4215,6 +4230,9 @@ int kvm_get_msr_common(struct kvm_vcpu *vcpu, struct msr_data *msr_info)
 			return 1;
 
 		msr_info->data = vcpu->arch.pv_eoi.msr_val;
+		break;
+	case MSR_KVM_SCHED_REGION:
+		msr_info->data = vcpu->arch.vcpu_sched.msr_val;
 		break;
 	case MSR_KVM_POLL_CONTROL:
 		if (!guest_pv_has(vcpu, KVM_FEATURE_POLL_CONTROL))
@@ -9785,8 +9803,8 @@ static void record_vcpu_boost_status(struct kvm_vcpu *vcpu)
 	u64 val = vcpu->arch.vcpu_sched.rt_boosted ? 2 : 1;
 
 	pagefault_disable();
-	kvm_write_guest_cached(vcpu->kvm, &vcpu->arch.vcpu_sched.data,
-		&val, sizeof(val));
+	kvm_write_guest_offset_cached(vcpu->kvm, &vcpu->arch.vcpu_sched.data,
+		&val, offsetof(struct vcpu_sched_data, vcpu_boosted), sizeof(u64));
 	pagefault_enable();
 }
 
