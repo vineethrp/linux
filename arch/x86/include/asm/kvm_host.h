@@ -987,6 +987,21 @@ struct kvm_vcpu_arch {
 	/* Protected Guests */
 	bool guest_state_protected;
 
+#ifdef CONFIG_KVM_VCPU_BOOST_HOST
+	/*
+	 * MSR to setup a shared memory for scheduling related data
+	 * sharing between host and guest vcpus.
+	 * As of now, its only a 64bit value to communicate
+	 * whether cpu is boosted or not.
+	 */
+	struct {
+		bool enabled;
+		bool boosted;
+		u64 msr_val;
+		struct gfn_to_hva_cache data;
+	} vcpu_sched;
+#endif
+
 	/*
 	 * Set when PDPTS were loaded directly by the userspace without
 	 * reading the guest memory
@@ -2197,6 +2212,23 @@ static inline int kvm_cpu_get_apicid(int mps_cpu)
 }
 
 int memslot_rmap_alloc(struct kvm_memory_slot *slot, unsigned long npages);
+
+#ifdef CONFIG_KVM_VCPU_BOOST_HOST
+static inline bool kvm_arch_vcpu_sched_enabled(struct kvm_vcpu_arch *arch)
+{
+	return arch->vcpu_sched.enabled;
+}
+
+static inline void kvm_arch_vcpu_set_boosted(struct kvm_vcpu_arch *arch, bool boosted)
+{
+	arch->vcpu_sched.boosted = boosted;
+}
+
+static inline bool kvm_arch_vcpu_boosted(struct kvm_vcpu_arch *arch)
+{
+	return arch->vcpu_sched.boosted;
+}
+#endif
 
 #define KVM_CLOCK_VALID_FLAGS						\
 	(KVM_CLOCK_TSC_STABLE | KVM_CLOCK_REALTIME | KVM_CLOCK_HOST_TSC)
