@@ -9913,6 +9913,36 @@ int kvm_emulate_hypercall(struct kvm_vcpu *vcpu)
 		vcpu->arch.complete_userspace_io = complete_hypercall_exit;
 		return 0;
 	}
+	case KVM_HC_VCPU_SCHED: {
+		ret = 0;
+		if (a0 != KVM_VCPU_SCHED_RT && a0 != KVM_VCPU_SCHED_NORMAL) {
+			ret = -KVM_EINVAL;
+			break;
+		} else if (a0 == KVM_VCPU_SCHED_NORMAL &&
+				(kvm_cpu_has_pending_timer(vcpu) ||
+				 kvm_cpu_has_interrupt(vcpu))) {
+			/*
+			 * An injected interrupt might not be delivered due
+			 * to cases like irq off in kernel and if we get here to
+			 * deboost, then the interrupt delivery may take a long
+			 * time as we are getting deboosted. Ignore this until
+			 * the interrupt is delivered. Deboost will happen from
+			 * irq/softirq exit or scheduler if needed.
+			 */
+			break;
+		}
+
+		preempt_disable();
+		ret = kvm_vcpu_set_sched(vcpu, a0 == KVM_VCPU_SCHED_RT);
+		preempt_enable();
+
+		if (ret) {
+			pr_warn("KVM_HC_VCPU_SCHED failed, sched_setscheduler_nocheck returned %ld\n",
+					ret);
+			ret = -KVM_EFAULT;
+		}
+		break;
+	}
 	default:
 		ret = -KVM_ENOSYS;
 		break;

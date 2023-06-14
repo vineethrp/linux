@@ -19,6 +19,7 @@
 #include <linux/kvm.h>
 #include <linux/module.h>
 #include <linux/errno.h>
+#include <linux/interrupt.h>
 #include <linux/percpu.h>
 #include <linux/mm.h>
 #include <linux/miscdevice.h>
@@ -29,6 +30,7 @@
 #include <linux/file.h>
 #include <linux/syscore_ops.h>
 #include <linux/cpu.h>
+#include <linux/sched.h>
 #include <linux/sched/signal.h>
 #include <linux/sched/mm.h>
 #include <linux/sched/stat.h>
@@ -56,6 +58,8 @@
 #include <asm/processor.h>
 #include <asm/ioctl.h>
 #include <linux/uaccess.h>
+
+#include <uapi/linux/sched/types.h>
 
 #include "coalesced_mmio.h"
 #include "async_pf.h"
@@ -3616,6 +3620,61 @@ bool kvm_vcpu_wake_up(struct kvm_vcpu *vcpu)
 	return false;
 }
 EXPORT_SYMBOL_GPL(kvm_vcpu_wake_up);
+
+/*
+ * Returns true if we need to call sched_setscheduler to change the
+ * scheduling class, otherwise returns false.
+ * We need not call sched_setscheduler if:
+ *  - caller is requesting boost and vcpu is already boosted
+ *  - caller is requesting unboost and vcpu is not boosted.
+ */
+static inline bool __kvm_vcpu_check_sched(struct kvm_vcpu *vcpu, bool boost)
+{
+	return ((boost && kvm_vcpu_rt_boosted(&vcpu->arch)) ||
+		(!boost && !kvm_vcpu_rt_boosted(&vcpu->arch)));
+}
+
+int kvm_vcpu_set_sched(struct kvm_vcpu *vcpu, bool boost)
+{
+	int policy;
+	int ret = 0;
+	struct pid *pid;
+	struct sched_param param = { 0 };
+	struct task_struct *vcpu_task = NULL;
+
+	if (!kvm_vcpu_sched || !kvm_vcpu_sched_enabled(&vcpu->arch))
+		return -KVM_EOPNOTSUPP;
+
+	if (__kvm_vcpu_check_sched(vcpu, boost))
+			goto set_boosted;
+
+	if (boost) {
+		policy = SCHED_FIFO;
+		param.sched_priority = MAX_RT_PRIO - 1;
+	} else {
+		policy = SCHED_NORMAL;
+		param.sched_priority = 0;
+	}
+
+	rcu_read_lock();
+	pid = rcu_dereference(vcpu->pid);
+	if (pid)
+		vcpu_task = get_pid_task(pid, PIDTYPE_PID);
+	rcu_read_unlock();
+	if (vcpu_task == NULL) {
+		return -KVM_EINVAL;
+	}
+
+	ret = sched_setscheduler_pi_nocheck(vcpu_task, policy,
+			&param, !in_interrupt());
+	put_task_struct(vcpu_task);
+set_boosted:
+	if (!ret)
+		kvm_set_vcpu_boosted(vcpu, boost);
+
+	return ret;
+}
+EXPORT_SYMBOL_GPL(kvm_vcpu_set_sched);
 
 #ifndef CONFIG_S390
 /*
