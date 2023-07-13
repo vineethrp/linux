@@ -378,7 +378,7 @@ static void kvm_guest_cpu_init(void)
 	}
 
 	if (sched_kvm_vcpu_sched_enabled()) {
-		unsigned long pa = sched_kvm_vcpu_boosted_pa() | KVM_MSR_ENABLED;
+		unsigned long pa = sched_kvm_vsd_pa() | KVM_MSR_ENABLED;
 		wrmsrl(MSR_KVM_SCHED_REGION, pa);
 	}
 

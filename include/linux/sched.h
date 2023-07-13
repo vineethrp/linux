@@ -2448,7 +2448,7 @@ extern void sched_set_stop_task(int cpu, struct task_struct *stop);
 
 DECLARE_STATIC_KEY_FALSE(sched_kvm_vcpu_sched);
 
-extern unsigned long sched_kvm_vcpu_boosted_pa(void);
+extern unsigned long sched_kvm_vsd_pa(void);
 
 static inline bool sched_kvm_vcpu_sched_enabled(void) {
 	return static_branch_unlikely(&sched_kvm_vcpu_sched);
