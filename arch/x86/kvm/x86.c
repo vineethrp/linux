@@ -3868,9 +3868,28 @@ int kvm_set_msr_common(struct kvm_vcpu *vcpu, struct msr_data *msr_info)
 
 		if (!kvm_gfn_to_hva_cache_init(vcpu->kvm,
 				&vcpu->arch.vcpu_sched.data, data & ~KVM_MSR_ENABLED,
-				sizeof(u64))) {
+				sizeof(struct vcpu_sched_data))) {
 			vcpu->arch.vcpu_sched.enabled = 1;
 			kvm_set_vcpu_boosted(vcpu, false);
+
+			pagefault_disable();
+			if (kvm_read_guest_offset_cached(
+					vcpu->kvm, &vcpu->arch.vcpu_sched.data,
+					&vcpu->arch.vcpu_sched.preempt_count_pa,
+					offsetof(struct vcpu_sched_data, preempt_count_pa),
+					sizeof(u64))) {
+				pr_warn("Failed to read preempt_count_pa from guest\n");
+				break;
+			}
+			pagefault_enable();
+			trace_printk("preempt_count_pa = %llX", vcpu->arch.vcpu_sched.preempt_count_pa);
+			if (vcpu->arch.vcpu_sched.preempt_count_pa &&
+				kvm_gfn_to_hva_cache_init(vcpu->kvm,
+				&vcpu->arch.vcpu_sched.pc_data, vcpu->arch.vcpu_sched.preempt_count_pa,
+				sizeof(int))) {
+				pr_warn("Failed to map preept_count_pa to host\n");
+				vcpu->arch.vcpu_sched.preempt_count_pa = 0ULL;
+			}
 		}
 		break;
 
@@ -9803,8 +9822,8 @@ static void record_vcpu_boost_status(struct kvm_vcpu *vcpu)
 	u64 val = vcpu->arch.vcpu_sched.rt_boosted ? 2 : 1;
 
 	pagefault_disable();
-	kvm_write_guest_cached(vcpu->kvm, &vcpu->arch.vcpu_sched.data,
-		&val, sizeof(val));
+	kvm_write_guest_offset_cached(vcpu->kvm, &vcpu->arch.vcpu_sched.data,
+		&val, offsetof(struct vcpu_sched_data, vcpu_boosted), sizeof(u64));
 	pagefault_enable();
 }
 

@@ -152,4 +152,12 @@ struct kvm_vcpu_pv_apf_data {
 #define KVM_PV_EOI_ENABLED KVM_PV_EOI_MASK
 #define KVM_PV_EOI_DISABLED 0x0
 
+/*
+ * Structure passed in via MSR_KVM_SCHED_REGION
+ */
+struct vcpu_sched_data {
+	__u64 vcpu_boosted;
+	__u64 preempt_count_pa;
+};
+
 #endif /* _UAPI_ASM_X86_KVM_PARA_H */
