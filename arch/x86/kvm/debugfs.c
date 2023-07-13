@@ -7,6 +7,7 @@
 #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 
 #include <linux/kvm_host.h>
+#include <linux/sched.h>
 #include <linux/debugfs.h>
 #include "lapic.h"
 #include "mmu.h"
@@ -56,6 +57,24 @@ static int vcpu_get_tsc_scaling_frac_bits(void *data, u64 *val)
 
 DEFINE_SIMPLE_ATTRIBUTE(vcpu_tsc_scaling_frac_fops, vcpu_get_tsc_scaling_frac_bits, NULL, "%llu\n");
 
+static int vcpu_get_boost_enabled(void *data, u64 *val)
+{
+	struct kvm_vcpu *vcpu = (struct kvm_vcpu *) data;
+	*val = vcpu->arch.vcpu_sched.enabled;
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(vcpu_boost_enabled_fops, vcpu_get_boost_enabled, NULL, "%llu\n");
+
+static int vcpu_get_rt_boosted(void *data, u64 *val)
+{
+	struct kvm_vcpu *vcpu = (struct kvm_vcpu *) data;
+	*val = vcpu->arch.vcpu_sched.rt_boosted;
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(vcpu_rt_boosted_fops, vcpu_get_rt_boosted, NULL, "%llu\n");
+
 void kvm_arch_create_vcpu_debugfs(struct kvm_vcpu *vcpu, struct dentry *debugfs_dentry)
 {
 	debugfs_create_file("guest_mode", 0444, debugfs_dentry, vcpu,
@@ -76,6 +95,13 @@ void kvm_arch_create_vcpu_debugfs(struct kvm_vcpu *vcpu, struct dentry *debugfs_
 				    debugfs_dentry, vcpu,
 				    &vcpu_tsc_scaling_frac_fops);
 	}
+
+	debugfs_create_file("vcpu_boost_enabled", 0444,
+			    debugfs_dentry, vcpu,
+			    &vcpu_boost_enabled_fops);
+	debugfs_create_file("vcpu_rt_boosted", 0444,
+			    debugfs_dentry, vcpu,
+			    &vcpu_rt_boosted_fops);
 }
 
 /*
