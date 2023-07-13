@@ -1348,6 +1348,7 @@ void kvm_gpc_deactivate(struct gfn_to_pfn_cache *gpc);
 void kvm_sigset_activate(struct kvm_vcpu *vcpu);
 void kvm_sigset_deactivate(struct kvm_vcpu *vcpu);
 
+bool kvm_guest_preempt_disabled(struct kvm_vcpu *vcpu);
 void kvm_set_vcpu_boosted(struct kvm_vcpu *vcpu, bool boosted);
 int kvm_vcpu_set_sched(struct kvm_vcpu *vcpu, bool boost);
 
