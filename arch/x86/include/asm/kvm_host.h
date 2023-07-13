@@ -998,6 +998,7 @@ struct kvm_vcpu_arch {
 		bool rt_boosted;
 		u64 msr_val;
 		struct gfn_to_hva_cache data;
+		bool preempt_disabled;
 		u64 preempt_count_pa;
 		struct gfn_to_hva_cache pc_data;
 	} vcpu_sched;
@@ -2221,6 +2222,19 @@ static inline bool kvm_vcpu_sched_enabled(struct kvm_vcpu_arch *arch)
 static inline bool kvm_vcpu_rt_boosted(struct kvm_vcpu_arch *arch)
 {
 	return arch->vcpu_sched.rt_boosted;
+}
+
+static inline void kvm_vcpu_set_preempt_disable(struct kvm_vcpu_arch *arch, bool disable)
+{
+	arch->vcpu_sched.preempt_disabled = disable;
+}
+
+/*
+ * Check if host has disabled preemption for this vcpu thread.
+ */
+static inline bool kvm_vcpu_preempt_disabled(struct kvm_vcpu_arch *arch)
+{
+	return arch->vcpu_sched.preempt_disabled;
 }
 
 #define KVM_CLOCK_VALID_FLAGS						\
