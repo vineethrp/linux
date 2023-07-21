@@ -3481,6 +3481,14 @@ bool kvm_vcpu_block(struct kvm_vcpu *vcpu)
 		if (kvm_vcpu_check_block(vcpu) < 0)
 			break;
 
+		/*
+		 * Switch to RT before scheduling out. Wakeup happens
+		 * only on and event or a signal and we would need to
+		 * be scheduled ASAP. Ultimely, guest gets to idle loop
+		 * and then will deboost.
+		 */
+		kvm_vcpu_set_sched(vcpu, true);
+
 		waited = true;
 		schedule();
 	}
