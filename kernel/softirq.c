@@ -548,9 +548,6 @@ asmlinkage __visible void __softirq_entry __do_softirq(void)
 	in_hardirq = lockdep_softirq_start();
 	account_softirq_enter(current);
 
-	if (sched_kvm_vcpu_sched_enabled())
-		sched_kvm_boost_vcpu();
-
 restart:
 	/* Reset the pending bitmask before enabling irqs */
 	set_softirq_pending(0);

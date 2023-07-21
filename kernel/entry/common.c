@@ -318,11 +318,6 @@ noinstr irqentry_state_t irqentry_enter(struct pt_regs *regs)
 		.exit_rcu = false,
 	};
 
-	instrumentation_begin();
-	if (sched_kvm_vcpu_sched_enabled())
-		sched_kvm_boost_vcpu();
-	instrumentation_end();
-
 	if (user_mode(regs)) {
 		irqentry_enter_from_user_mode(regs);
 		return ret;
@@ -475,9 +470,6 @@ irqentry_state_t noinstr irqentry_nmi_enter(struct pt_regs *regs)
 	kmsan_unpoison_entry_regs(regs);
 	trace_hardirqs_off_finish();
 	ftrace_nmi_enter();
-
-	if (sched_kvm_vcpu_sched_enabled())
-		sched_kvm_boost_vcpu();
 	instrumentation_end();
 
 	return irq_state;
