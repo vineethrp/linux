@@ -7801,8 +7801,8 @@ unlock:
 	return retval;
 }
 
-static int _sched_setscheduler(struct task_struct *p, int policy,
-			       const struct sched_param *param, bool check)
+static int _sched_setscheduler_pi(struct task_struct *p, int policy,
+			       const struct sched_param *param, bool check, bool pi)
 {
 	struct sched_attr attr = {
 		.sched_policy   = policy,
@@ -7817,8 +7817,15 @@ static int _sched_setscheduler(struct task_struct *p, int policy,
 		attr.sched_policy = policy;
 	}
 
-	return __sched_setscheduler(p, &attr, check, true);
+	return __sched_setscheduler(p, &attr, check, pi);
 }
+
+static inline int _sched_setscheduler(struct task_struct *p, int policy,
+			       const struct sched_param *param, bool check)
+{
+	return _sched_setscheduler_pi(p, policy, param, check, true);
+}
+
 /**
  * sched_setscheduler - change the scheduling policy and/or RT priority of a thread.
  * @p: the task in question.
@@ -7865,6 +7872,15 @@ int sched_setscheduler_nocheck(struct task_struct *p, int policy,
 			       const struct sched_param *param)
 {
 	return _sched_setscheduler(p, policy, param, false);
+}
+
+/*
+ * Interrupt context safe version of sched_setscheduler_nocheck
+ */
+int sched_setscheduler_pi_nocheck(struct task_struct *p, int policy,
+			       const struct sched_param *param, bool pi)
+{
+	return _sched_setscheduler_pi(p, policy, param, false, pi);
 }
 
 /*
