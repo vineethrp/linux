@@ -3872,6 +3872,26 @@ int kvm_set_msr_common(struct kvm_vcpu *vcpu, struct msr_data *msr_info)
 				sizeof(struct vcpu_sched_data))) {
 			vcpu->arch.vcpu_sched.enabled = 1;
 			kvm_set_vcpu_boosted(vcpu, false);
+
+#ifdef CONFIG_KVM_VCPU_BOOST_HOST_PC
+			pagefault_disable();
+			if (kvm_read_guest_offset_cached(
+					vcpu->kvm, &vcpu->arch.vcpu_sched.data,
+					&vcpu->arch.vcpu_sched.preempt_count_pa,
+					offsetof(struct vcpu_sched_data, preempt_count_pa),
+					sizeof(u64))) {
+				pr_warn("Failed to read preempt_count_pa from guest\n");
+				break;
+			}
+			pagefault_enable();
+			if (vcpu->arch.vcpu_sched.preempt_count_pa &&
+				kvm_gfn_to_hva_cache_init(vcpu->kvm,
+				&vcpu->arch.vcpu_sched.pc_data, vcpu->arch.vcpu_sched.preempt_count_pa,
+				sizeof(int))) {
+				pr_warn("Failed to map preept_count_pa to host\n");
+				vcpu->arch.vcpu_sched.preempt_count_pa = 0ULL;
+			}
+#endif
 		}
 		break;
 #endif
