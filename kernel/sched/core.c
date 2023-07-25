@@ -160,6 +160,11 @@ unsigned long sched_kvm_vsd_pa(void)
 {
 	struct vcpu_sched_data *_vsd = this_cpu_ptr(&vsd);
 
+	/*
+	 * XXX: This initialization should probably belong else where.
+	 */
+	_vsd->preempt_count_pa = slow_virt_to_phys(this_cpu_ptr(&pcpu_hot.preempt_count));
+
 	return slow_virt_to_phys(_vsd);
 }
 EXPORT_SYMBOL(sched_kvm_vsd_pa);
