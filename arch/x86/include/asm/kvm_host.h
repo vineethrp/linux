@@ -1000,6 +1000,8 @@ struct kvm_vcpu_arch {
 		int boost_prio;
 		u64 msr_val;
 		struct gfn_to_hva_cache data;
+		u64 preempt_count_pa;
+		struct gfn_to_hva_cache pc_data;
 	} vcpu_sched;
 
 	/*
