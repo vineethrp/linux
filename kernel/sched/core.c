@@ -2108,6 +2108,18 @@ static inline void enqueue_task(struct rq *rq, struct task_struct *p, int flags)
 	uclamp_rq_inc(rq, p);
 	p->sched_class->enqueue_task(rq, p, flags);
 
+	/*
+	 * TODO: currently we do not have a mechanism to hypercall for a different cpu.
+	 * So we boost only if this enqueue happens for this cpu.
+	 * We need to boost remote cpus as a complete fix. This is not abig problem
+	 * though, target cpu gets an IPI and then gets boosted by the host. Posted
+	 * interrupts is an exception where target vcpu will not get boosted immediately
+	 * and then the boosting would happen during __schedule.
+	 */
+	if (sched_kvm_vcpu_sched_enabled() && this_rq() == rq &&
+			p->sched_class <= &rt_sched_class)
+		sched_kvm_boost_vcpu();
+
 	if (sched_core_enabled(rq))
 		sched_core_enqueue(rq, p);
 }
@@ -6663,6 +6675,13 @@ static void __sched notrace __schedule(unsigned int sched_mode)
 #ifdef CONFIG_SCHED_DEBUG
 	rq->last_seen_need_resched_ns = 0;
 #endif
+	if (sched_kvm_vcpu_sched_enabled()) {
+	       if (next->sched_class <= &rt_sched_class) {
+			sched_kvm_boost_vcpu();
+	       } else if (next->sched_class == &fair_sched_class) {
+			sched_kvm_unboost_vcpu();
+	       }
+	}
 
 	if (likely(prev != next)) {
 		rq->nr_switches++;
