@@ -166,6 +166,7 @@ typedef enum {
  */
 struct vcpu_sched_data {
 	__u64 boost_status;
+	__u64 preempt_count_pa;
 };
 
 #endif /* _UAPI_ASM_X86_KVM_PARA_H */
