@@ -10579,6 +10579,31 @@ void __kvm_request_immediate_exit(struct kvm_vcpu *vcpu)
 EXPORT_SYMBOL_GPL(__kvm_request_immediate_exit);
 
 /*
+ * vcpu boost time accounting
+ */
+struct vbta {
+	u64 start_time;
+	bool start_boosted;
+};
+
+void vcpu_boost_timing_enter(struct kvm_vcpu *vcpu, struct vbta *vbta)
+{
+	vbta->start_time = ktime_get();
+	vbta->start_boosted = vcpu->arch.vcpu_sched.rt_boosted;
+}
+
+void vcpu_boost_timing_exit(struct kvm_vcpu *vcpu, struct vbta *vbta)
+{
+	ktime_t delta;
+
+	delta = ktime_to_ns(ktime_sub(ktime_get(), vbta->start_time));
+	if (vbta->start_boosted)
+		vcpu->stat.running_time_boosted += delta;
+	else
+		vcpu->stat.running_time_unboosted += delta;
+}
+
+/*
  * Called within kvm->srcu read side.
  * Returns 1 to let vcpu_run() continue the guest execution loop without
  * exiting to the userspace.  Otherwise, the value will be returned to the
@@ -10852,6 +10877,7 @@ static int vcpu_enter_guest(struct kvm_vcpu *vcpu)
 	guest_timing_enter_irqoff();
 
 	for (;;) {
+		struct vbta vbta = { 0 };
 		/*
 		 * Assert that vCPU vs. VM APICv state is consistent.  An APICv
 		 * update must kick and wait for all vCPUs before toggling the
@@ -10861,7 +10887,9 @@ static int vcpu_enter_guest(struct kvm_vcpu *vcpu)
 		WARN_ON_ONCE((kvm_vcpu_apicv_activated(vcpu) != kvm_vcpu_apicv_active(vcpu)) &&
 			     (kvm_get_apic_mode(vcpu) != LAPIC_MODE_DISABLED));
 
+		vcpu_boost_timing_enter(vcpu, &vbta);
 		exit_fastpath = static_call(kvm_x86_vcpu_run)(vcpu);
+		vcpu_boost_timing_exit(vcpu, &vbta);
 		if (likely(exit_fastpath != EXIT_FASTPATH_REENTER_GUEST))
 			break;
 
