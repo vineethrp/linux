@@ -1526,6 +1526,10 @@ struct kvm_vcpu_stat {
 	u64 preemption_other;
 	u64 guest_mode;
 	u64 notify_window_exits;
+#ifdef CONFIG_KVM_VCPU_BOOST_HOST
+	u64 running_time_unboosted;
+	u64 running_time_boosted;
+#endif
 };
 
 struct x86_instruction_info;
