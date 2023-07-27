@@ -141,4 +141,14 @@ config KVM_XEN
 config KVM_EXTERNAL_WRITE_TRACKING
 	bool
 
+config KVM_VCPU_BOOST_HOST
+	bool "Support for dynamic [un]boosting of vcpu threads"
+	depends on KVM
+	select HAVE_KVM_VCPU_BOOST
+	help
+	  Dynamically boost vcpu thread to RT based on the workload on
+	  running on the vcpu(interrupts, nmis, softirqs, RT tasks etc)
+	  and unboost when running normal tasks.
+	  This config enables the host(hypervisor) side features.
+
 endif # VIRTUALIZATION
