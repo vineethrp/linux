@@ -996,6 +996,8 @@ struct kvm_vcpu_arch {
 	struct {
 		bool enabled;
 		bool boosted;
+		int boost_policy;
+		int boost_prio;
 		u64 msr_val;
 		struct gfn_to_hva_cache data;
 	} vcpu_sched;
@@ -1010,6 +1012,13 @@ struct kvm_vcpu_arch {
 	hpa_t hv_root_tdp;
 #endif
 };
+
+/*
+ * Default policy and priority used for boosting
+ * VCPU threads.
+ */
+#define VCPU_BOOST_DEFAULT_PRIO	8
+#define VCPU_BOOST_DEFAULT_POLICY	SCHED_RR
 
 struct kvm_lpage_info {
 	int disallow_lpage;
@@ -2224,6 +2233,35 @@ static inline void kvm_arch_vcpu_set_boosted(struct kvm_vcpu_arch *arch, bool bo
 static inline bool kvm_arch_vcpu_boosted(struct kvm_vcpu_arch *arch)
 {
 	return arch->vcpu_sched.boosted;
+}
+
+
+static inline int kvm_arch_vcpu_boost_policy(struct kvm_vcpu_arch *arch)
+{
+	return arch->vcpu_sched.boost_policy;
+}
+
+static inline int kvm_arch_vcpu_boost_prio(struct kvm_vcpu_arch *arch)
+{
+	return arch->vcpu_sched.boost_prio;
+}
+
+static inline int kvm_arch_vcpu_set_boost_prio(struct kvm_vcpu_arch *arch, u64 prio)
+{
+	if (prio >= MAX_RT_PRIO)
+		return -EINVAL;
+
+	arch->vcpu_sched.boost_prio = prio;
+	return 0;
+}
+
+static inline int kvm_arch_vcpu_set_boost_policy(struct kvm_vcpu_arch *arch, u64 policy)
+{
+	if (policy != SCHED_FIFO && policy != SCHED_RR)
+		return -EINVAL;
+
+	arch->vcpu_sched.boost_policy = policy;
+	return 0;
 }
 
 #define KVM_CLOCK_VALID_FLAGS						\

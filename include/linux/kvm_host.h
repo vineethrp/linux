@@ -1349,6 +1349,7 @@ void kvm_sigset_activate(struct kvm_vcpu *vcpu);
 void kvm_sigset_deactivate(struct kvm_vcpu *vcpu);
 
 void kvm_set_vcpu_boosted(struct kvm_vcpu *vcpu, bool boosted);
+int kvm_vcpu_set_sched(struct kvm_vcpu *vcpu, bool boost);
 
 void kvm_vcpu_halt(struct kvm_vcpu *vcpu);
 bool kvm_vcpu_block(struct kvm_vcpu *vcpu);
