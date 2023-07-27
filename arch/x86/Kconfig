@@ -835,6 +835,23 @@ config KVM_GUEST
 	  underlying device model, the host provides the guest with
 	  timing infrastructure such as time of day, and system time
 
+config KVM_VCPU_BOOST_GUEST
+	bool "VCPU dynamic boost support for Guests"
+	depends on KVM_GUEST
+	select HAVE_KVM_VCPU_BOOST
+	help
+	  This option enables dynamic vcpu boostiing support with in the guest
+	  running on KVM hypervisor. Guest would be able to request the vcpu
+	  threads to be boosted to RT while running important and latency
+	  sensitive workloads.
+
+config KVM_VCPU_BOOST_GUEST_PC
+	bool "share preempt_count info with host for [un]boosting vcpu threads"
+	depends on KVM_VCPU_BOOST_GUEST
+	help
+	  This option enables guest to share its preempt_count with host so that
+	  host can make educated decision whether to boost a vcpu thread or not.
+
 config ARCH_CPUIDLE_HALTPOLL
 	def_bool n
 	prompt "Disable host haltpoll when loading haltpoll driver"
