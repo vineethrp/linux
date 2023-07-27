@@ -9843,6 +9843,28 @@ void kvm_set_vcpu_boosted(struct kvm_vcpu *vcpu, bool boosted)
 	kvm_make_request(KVM_REQ_VCPU_BOOST_UPDATE, vcpu);
 }
 EXPORT_SYMBOL_GPL(kvm_set_vcpu_boosted);
+
+#ifdef CONFIG_KVM_VCPU_BOOST_PC
+/*
+ * Check if this guest vpcu has preemption disabled.
+ */
+bool kvm_guest_preempt_disabled(struct kvm_vcpu *vcpu)
+{
+	int val;
+
+	if (!kvm_arch_vcpu_sched_enabled(&vcpu->arch))
+		return false;
+
+	pagefault_disable();
+	kvm_read_guest_cached(vcpu->kvm, &vcpu->arch.vcpu_sched.pc_data,
+		&val, sizeof(int));
+	pagefault_enable();
+	val &= ~PREEMPT_NEED_RESCHED;
+
+	return val;
+}
+EXPORT_SYMBOL_GPL(kvm_guest_preempt_disabled);
+#endif
 #endif
 
 int kvm_emulate_hypercall(struct kvm_vcpu *vcpu)
@@ -11075,6 +11097,13 @@ static int vcpu_run(struct kvm_vcpu *vcpu)
 			break;
 		}
 
+#if defined CONFIG_KVM_VCPU_BOOST_HOST && defined CONFIG_KVM_VCPU_BOOST_PC
+		if (need_resched() && kvm_vcpu_running(vcpu) &&
+				!kvm_arch_vcpu_boosted(&vcpu->arch) &&
+				kvm_guest_preempt_disabled(vcpu)) {
+			kvm_vcpu_set_sched(vcpu, true);
+		}
+#endif
 		if (__xfer_to_guest_mode_work_pending()) {
 			kvm_vcpu_srcu_read_unlock(vcpu);
 			r = xfer_to_guest_mode_handle_work(vcpu);

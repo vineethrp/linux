@@ -1362,6 +1362,9 @@ void kvm_vcpu_on_spin(struct kvm_vcpu *vcpu, bool yield_to_kernel_mode);
 void kvm_flush_remote_tlbs(struct kvm *kvm);
 
 #ifdef CONFIG_KVM_VCPU_BOOST_HOST
+#ifdef CONFIG_KVM_VCPU_BOOST_PC
+bool kvm_guest_preempt_disabled(struct kvm_vcpu *vcpu);
+#endif
 void kvm_set_vcpu_boosted(struct kvm_vcpu *vcpu, bool boosted);
 int kvm_vcpu_set_sched(struct kvm_vcpu *vcpu, bool boost);
 static inline void kvm_vcpu_kick_boost(struct kvm_vcpu *vcpu)
