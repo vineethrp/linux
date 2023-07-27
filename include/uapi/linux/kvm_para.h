@@ -30,6 +30,10 @@
 #define KVM_HC_SEND_IPI		10
 #define KVM_HC_SCHED_YIELD		11
 #define KVM_HC_MAP_GPA_RANGE		12
+#define KVM_HC_VCPU_SCHED		24
+
+#define KVM_VCPU_SCHED_BOOST		0
+#define KVM_VCPU_SCHED_UNBOOST		1
 
 /*
  * hypercalls use architecture specific

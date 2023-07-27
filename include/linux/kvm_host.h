@@ -1363,6 +1363,7 @@ void kvm_flush_remote_tlbs(struct kvm *kvm);
 
 #ifdef CONFIG_KVM_VCPU_BOOST_HOST
 void kvm_set_vcpu_boosted(struct kvm_vcpu *vcpu, bool boosted);
+int kvm_vcpu_set_sched(struct kvm_vcpu *vcpu, bool boost);
 #endif
 
 #ifdef KVM_ARCH_NR_OBJS_PER_MEMORY_CACHE
