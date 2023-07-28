@@ -2095,6 +2095,10 @@ extern unsigned int halt_poll_ns_grow;
 extern unsigned int halt_poll_ns_grow_start;
 extern unsigned int halt_poll_ns_shrink;
 
+#ifdef CONFIG_KVM_VCPU_BOOST_HOST
+extern bool kvm_vcpu_sched;
+#endif
+
 struct kvm_device {
 	const struct kvm_device_ops *ops;
 	struct kvm *kvm;

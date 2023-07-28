@@ -96,6 +96,13 @@ unsigned int halt_poll_ns_shrink;
 module_param(halt_poll_ns_shrink, uint, 0644);
 EXPORT_SYMBOL_GPL(halt_poll_ns_shrink);
 
+#ifdef CONFIG_KVM_VCPU_BOOST_HOST
+/* Enable host side of KVM_FEATURE_VCPU_SCHED */
+bool __read_mostly kvm_vcpu_sched = false;
+EXPORT_SYMBOL_GPL(kvm_vcpu_sched);
+module_param(kvm_vcpu_sched, bool, 0644);
+#endif
+
 /*
  * Ordering of locks:
  *
