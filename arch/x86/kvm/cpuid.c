@@ -418,6 +418,21 @@ static int kvm_set_cpuid(struct kvm_vcpu *vcpu, struct kvm_cpuid_entry2 *e2,
 		return r;
 
 	kvfree(vcpu->arch.cpuid_entries);
+
+#ifdef CONFIG_KVM_VCPU_BOOST_HOST
+	if (kvm_vcpu_sched) {
+		for (r = 0; r < nent; r++) {
+			if (e2[r].function != KVM_CPUID_FEATURES)
+				continue;
+
+			e2[r].eax |= (1 << KVM_FEATURE_VCPU_SCHED);
+			pr_info("kvm_set_cpuid: Adding VCPU_SCHED, Feature: 0X%X, EAX: 0X%X\n",
+					e2[r].function, e2[r].eax);
+			break;
+		}
+	}
+#endif
+
 	vcpu->arch.cpuid_entries = e2;
 	vcpu->arch.cpuid_nent = nent;
 
