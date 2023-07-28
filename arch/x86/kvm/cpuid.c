@@ -1119,6 +1119,9 @@ static inline int __do_cpuid_func(struct kvm_cpuid_array *array, u32 function)
 			     (1 << KVM_FEATURE_POLL_CONTROL) |
 			     (1 << KVM_FEATURE_PV_SCHED_YIELD) |
 			     (1 << KVM_FEATURE_ASYNC_PF_INT);
+#ifdef CONFIG_KVM_VCPU_BOOST_HOST
+		entry->eax |= (1 << KVM_FEATURE_VCPU_SCHED);
+#endif
 
 		if (sched_info_on())
 			entry->eax |= (1 << KVM_FEATURE_STEAL_TIME);
