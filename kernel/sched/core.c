@@ -7665,6 +7665,25 @@ void show_state_filter(unsigned int state_filter)
 }
 
 /**
+ * sched_setattr_pi_nocheck - change the scheduling attributes of a thread from kernelspace.
+ * @p: the task in question.
+ * @attr: new scheduling attributes(policy, rt priority, nice etc).
+ * @pi: boolean flag stating if pi validation needs to be performed.
+ *
+ * A flexible version of sched_setattr_nocheck which allows for specifying
+ * whether PI context validation needs to be done or not. set_scheduler_nocheck
+ * is not allowed in interrupt context as it assumes that PI is used.
+ * This function allows interrupt context call by specifying pi = false.
+ *
+ * Return: 0 on success. An error code otherwise.
+ */
+int sched_setattr_pi_nocheck(struct task_struct *p, const struct sched_attr *attr, bool pi)
+{
+	return __sched_setscheduler(p, attr, false, pi);
+}
+EXPORT_SYMBOL_GPL(sched_setattr_pi_nocheck);
+
+/**
  * init_idle - set up an idle thread for a given CPU
  * @idle: task in question
  * @cpu: CPU the idle task belongs to
