@@ -2196,6 +2196,15 @@ fastpath_t handle_fastpath_set_msr_irqoff(struct kvm_vcpu *vcpu)
 		data = kvm_read_edx_eax(vcpu);
 		handled = !handle_fastpath_set_tscdeadline(vcpu, data);
 		break;
+#ifdef CONFIG_PARAVIRT_SCHED_KVM
+	case MSR_KVM_PV_SCHED:
+		data = kvm_read_edx_eax(vcpu);
+		if (data == ULLONG_MAX) {
+			kvm_skip_emulated_instruction(vcpu);
+			ret = EXIT_FASTPATH_EXIT_HANDLED;
+		}
+		break;
+#endif
 	default:
 		handled = false;
 		break;
@@ -4043,6 +4052,37 @@ int kvm_set_msr_common(struct kvm_vcpu *vcpu, struct msr_data *msr_info)
 			return 1;
 		break;
 
+#ifdef CONFIG_PARAVIRT_SCHED_KVM
+	case MSR_KVM_PV_SCHED:
+		if (!guest_pv_has(vcpu, KVM_FEATURE_PV_SCHED))
+			return 1;
+
+		if (!(data & KVM_MSR_ENABLED))
+			break;
+
+		if (!(data & ~KVM_MSR_ENABLED) && vcpu->arch.pv_sched.msr_val) {
+			/*
+			 * Disable the feature
+			 */
+			vcpu->arch.pv_sched.msr_val = 0;
+			kvm_vcpu_set_sched(vcpu,
+				kvm_arch_vcpu_default_sched_attr(&vcpu->arch));
+		} else if (!kvm_gfn_to_hva_cache_init(vcpu->kvm,
+				&vcpu->arch.pv_sched.data, data & ~KVM_MSR_ENABLED,
+				sizeof(struct pv_sched_data))) {
+			vcpu->arch.pv_sched.msr_val = data;
+			kvm_arch_vcpu_set_default_sched_attr(&vcpu->arch,
+				kvm_vcpu_get_sched(vcpu));
+			kvm_vcpu_set_sched(vcpu,
+				kvm_arch_vcpu_default_sched_attr(&vcpu->arch));
+		} else {
+			kvm_debug_ratelimited(
+				"kvm:%p, vcpu:%p, msr: %llx, kvm_gfn_to_hva_cache_init failed!\n",
+				vcpu->kvm, vcpu, data & ~KVM_MSR_ENABLED);
+		}
+		break;
+#endif
+
 	case MSR_KVM_POLL_CONTROL:
 		if (!guest_pv_has(vcpu, KVM_FEATURE_POLL_CONTROL))
 			return 1;
@@ -4398,6 +4438,11 @@ int kvm_get_msr_common(struct kvm_vcpu *vcpu, struct msr_data *msr_info)
 
 		msr_info->data = vcpu->arch.pv_eoi.msr_val;
 		break;
+#ifdef CONFIG_PARAVIRT_SCHED_KVM
+	case MSR_KVM_PV_SCHED:
+		msr_info->data = vcpu->arch.pv_sched.msr_val;
+		break;
+#endif
 	case MSR_KVM_POLL_CONTROL:
 		if (!guest_pv_has(vcpu, KVM_FEATURE_POLL_CONTROL))
 			return 1;
@@ -10695,6 +10740,51 @@ static void kvm_vcpu_reload_apic_access_page(struct kvm_vcpu *vcpu)
 	kvm_x86_call(set_apic_access_page_addr)(vcpu);
 }
 
+#ifdef CONFIG_PARAVIRT_SCHED_KVM
+/*
+ * Update the host area of PV_SCHED with the vcpu task sched parameters
+ * so that guest can utilize it if needed.
+ */
+static void record_vcpu_pv_sched(struct kvm_vcpu *vcpu)
+{
+	if (!kvm_arch_vcpu_pv_sched_enabled(&vcpu->arch))
+		return;
+
+	pagefault_disable();
+	kvm_write_guest_offset_cached(vcpu->kvm, &vcpu->arch.pv_sched.data,
+		&vcpu->arch.pv_sched.attr, PV_SCHEDATTR_HOST_OFFSET, sizeof(union vcpu_sched_attr));
+	pagefault_enable();
+}
+
+static inline void kvm_vcpu_do_pv_sched(struct kvm_vcpu *vcpu)
+{
+	if (!kvm_vcpu_sched_enabled(vcpu))
+		return;
+
+	if (kvm_cpu_has_pending_timer(vcpu) || kvm_cpu_has_interrupt(vcpu))
+		kvm_vcpu_boost(vcpu, PVSCHED_KERNCS_BOOST_IRQ);
+	else {
+		union vcpu_sched_attr attr;
+
+		if (kvm_read_guest_offset_cached(vcpu->kvm, &vcpu->arch.pv_sched.data,
+					&attr, PV_SCHEDATTR_GUEST_OFFSET, sizeof(attr)))
+			return;
+		kvm_vcpu_set_sched(vcpu, attr);
+	}
+}
+
+static void kvm_vcpu_pv_sched_init(struct kvm_vcpu *vcpu)
+{
+	kvm_arch_vcpu_set_kerncs_prio(&vcpu->arch, VCPU_KERN_CS_PRIO);
+	kvm_arch_vcpu_set_kerncs_policy(&vcpu->arch, VCPU_KERN_CS_POLICY);
+	kvm_arch_vcpu_set_default_sched_attr(&vcpu->arch, kvm_vcpu_get_sched(vcpu));
+}
+#else
+static inline void record_vcpu_pv_sched(struct kvm_vcpu *vcpu) { }
+static inline void kvm_vcpu_do_pv_sched(struct kvm_vcpu *vcpu) { }
+static inline void kvm_vcpu_pv_sched_init(struct kvm_vcpu *vcpu) { }
+#endif
+
 /*
  * Called within kvm->srcu read side.
  * Returns 1 to let vcpu_run() continue the guest execution loop without
@@ -10796,6 +10886,8 @@ static int vcpu_enter_guest(struct kvm_vcpu *vcpu)
 			kvm_pmu_handle_event(vcpu);
 		if (kvm_check_request(KVM_REQ_PMI, vcpu))
 			kvm_pmu_deliver_pmi(vcpu);
+		if (kvm_check_request(KVM_REQ_VCPU_PV_SCHED, vcpu))
+			record_vcpu_pv_sched(vcpu);
 #ifdef CONFIG_KVM_SMM
 		if (kvm_check_request(KVM_REQ_SMI, vcpu))
 			process_smi(vcpu);
@@ -11066,6 +11158,9 @@ static int vcpu_enter_guest(struct kvm_vcpu *vcpu)
 	guest_timing_exit_irqoff();
 
 	local_irq_enable();
+
+	kvm_vcpu_do_pv_sched(vcpu);
+
 	preempt_enable();
 
 	kvm_vcpu_srcu_read_lock(vcpu);
@@ -12312,6 +12407,8 @@ int kvm_arch_vcpu_create(struct kvm_vcpu *vcpu)
 	r = kvm_x86_call(vcpu_create)(vcpu);
 	if (r)
 		goto free_guest_fpu;
+
+	kvm_vcpu_pv_sched_init(vcpu);
 
 	vcpu->arch.arch_capabilities = kvm_get_arch_capabilities();
 	vcpu->arch.msr_platform_info = MSR_PLATFORM_INFO_CPUID_FAULT;

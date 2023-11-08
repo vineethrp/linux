@@ -172,6 +172,7 @@ static inline bool is_error_page(struct page *page)
 #define KVM_REQ_VM_DEAD			(1 | KVM_REQUEST_WAIT | KVM_REQUEST_NO_WAKEUP)
 #define KVM_REQ_UNBLOCK			2
 #define KVM_REQ_DIRTY_RING_SOFT_FULL	3
+#define KVM_REQ_VCPU_PV_SCHED		6
 #define KVM_REQUEST_ARCH_BASE		8
 
 /*
@@ -2512,6 +2513,20 @@ void kvm_arch_gmem_invalidate(kvm_pfn_t start, kvm_pfn_t end);
 #ifdef CONFIG_KVM_GENERIC_PRE_FAULT_MEMORY
 long kvm_arch_vcpu_pre_fault_memory(struct kvm_vcpu *vcpu,
 				    struct kvm_pre_fault_memory *range);
+#endif
+
+#ifdef CONFIG_PARAVIRT_SCHED_KVM
+int kvm_vcpu_set_sched(struct kvm_vcpu *vcpu, union vcpu_sched_attr attr);
+union vcpu_sched_attr kvm_vcpu_get_sched(struct kvm_vcpu *vcpu);
+
+static inline bool kvm_vcpu_sched_enabled(struct kvm_vcpu *vcpu)
+{
+	return kvm_arch_vcpu_pv_sched_enabled(&vcpu->arch);
+}
+
+void kvm_vcpu_boost(struct kvm_vcpu *vcpu, enum kerncs_boost_type boost_type);
+#else
+static inline void kvm_vcpu_boost(struct kvm_vcpu *vcpu, enum kerncs_boost_type boost_type) { }
 #endif
 
 #endif
