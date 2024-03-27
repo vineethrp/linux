@@ -2267,4 +2267,10 @@ struct kvm_s390_zpci_op {
 /* flags for kvm_s390_zpci_op->u.reg_aen.flags */
 #define KVM_S390_ZPCIOP_REGAEN_HOST    (1 << 0)
 
+struct kvm_pvsched_ops {
+	__u8 ops_name[32]; /* PVSCHED_NAME_MAX */
+};
+
+#define KVM_GET_PVSCHED_OPS		_IOR(KVMIO, 0xe4, struct kvm_pvsched_ops)
+#define KVM_REPLACE_PVSCHED_OPS		_IOWR(KVMIO, 0xe5, struct kvm_pvsched_ops)
 #endif /* __LINUX_KVM_H */
