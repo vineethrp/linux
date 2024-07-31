@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: GPL-2.0+
+#
+# Pvsched Kconfig
+#
+# Copyright (C) 2024 Google.
+#
+
+config PVSCHED_PCI
+	tristate "pvsched PCI device support"
+	depends on PCI
+	help
+	  pvsched is a paravirtualized device provided by crosvm; it lets
+	  a virtual machine (guest) share scheduling information with the
+	  host so as to enable the host and guest to make better scheduling
+	  decisions.
