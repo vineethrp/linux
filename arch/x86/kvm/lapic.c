@@ -46,6 +46,8 @@
 #include "hyperv.h"
 #include "smm.h"
 
+#include <trace/events/kvm_pvsched.h>
+
 #ifndef CONFIG_X86_64
 #define mod_64(x, y) ((x) - (y) * div64_u64(x, y))
 #else
@@ -1308,6 +1310,8 @@ static int __apic_accept_irq(struct kvm_lapic *apic, int delivery_mode,
 
 	trace_kvm_apic_accept_irq(vcpu->vcpu_id, delivery_mode,
 				  trig_mode, vector);
+	if (delivery_mode == APIC_DM_FIXED || delivery_mode == APIC_DM_NMI)
+		trace_paravirt_vcpu_inject_intr(vcpu->vcpu_id, pid_nr(rcu_dereference(vcpu->pid)));
 	switch (delivery_mode) {
 	case APIC_DM_LOWEST:
 		vcpu->arch.apic_arb_prio++;
@@ -1933,8 +1937,10 @@ static void apic_timer_expired(struct kvm_lapic *apic, bool from_timer_fn)
 
 	atomic_inc(&apic->lapic_timer.pending);
 	kvm_make_request(KVM_REQ_UNBLOCK, vcpu);
-	if (from_timer_fn)
+	if (from_timer_fn) {
+		trace_paravirt_vcpu_inject_intr(vcpu->vcpu_id, pid_nr(rcu_dereference(vcpu->pid)));
 		kvm_vcpu_kick_boost(vcpu);
+	}
 }
 
 static void start_sw_tscdeadline(struct kvm_lapic *apic)

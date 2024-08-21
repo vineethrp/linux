@@ -43,6 +43,7 @@
 #include <asm/fpu/api.h>
 
 #include <trace/events/ipi.h>
+#include <trace/events/kvm_pvsched.h>
 
 #include "trace.h"
 
@@ -4203,6 +4204,7 @@ static __no_kcsan fastpath_t svm_vcpu_run(struct kvm_vcpu *vcpu,
 	bool spec_ctrl_intercepted = msr_write_intercepted(vcpu, MSR_IA32_SPEC_CTRL);
 
 	trace_kvm_entry(vcpu, force_immediate_exit);
+	trace_paravirt_vmentry(vcpu->vcpu_id, pid_nr(rcu_dereference(vcpu->pid)));
 
 	svm->vmcb->save.rax = vcpu->arch.regs[VCPU_REGS_RAX];
 	svm->vmcb->save.rsp = vcpu->arch.regs[VCPU_REGS_RSP];
@@ -4319,6 +4321,7 @@ static __no_kcsan fastpath_t svm_vcpu_run(struct kvm_vcpu *vcpu,
 		svm_handle_mce(vcpu);
 
 	trace_kvm_exit(vcpu, KVM_ISA_SVM);
+	trace_paravirt_vmexit(vcpu->vcpu_id, pid_nr(rcu_dereference(vcpu->pid)));
 
 	svm_complete_interrupts(vcpu);
 

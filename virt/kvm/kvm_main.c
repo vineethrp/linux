@@ -63,6 +63,7 @@
 #include "vfio.h"
 
 #include <trace/events/ipi.h>
+#include <trace/events/kvm_pvsched.h>
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/kvm.h>
@@ -3801,6 +3802,7 @@ bool kvm_vcpu_block(struct kvm_vcpu *vcpu)
 		kvm_vcpu_boost(vcpu, PVSCHED_KERNCS_BOOST_IDLE);
 
 		waited = true;
+		trace_paravirt_vcpu_halt(vcpu->vcpu_id, pid_nr(rcu_dereference(vcpu->pid)));
 		schedule();
 	}
 

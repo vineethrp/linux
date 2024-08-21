@@ -51,6 +51,7 @@
 #include <asm/vmx.h>
 
 #include <trace/events/ipi.h>
+#include <trace/events/kvm_pvsched.h>
 
 #include "capabilities.h"
 #include "cpuid.h"
@@ -7363,6 +7364,7 @@ fastpath_t vmx_vcpu_run(struct kvm_vcpu *vcpu, bool force_immediate_exit)
 	}
 
 	trace_kvm_entry(vcpu, force_immediate_exit);
+	trace_paravirt_vmentry(vcpu->vcpu_id, pid_nr(rcu_dereference(vcpu->pid)));
 
 	if (vmx->ple_window_dirty) {
 		vmx->ple_window_dirty = false;
@@ -7478,6 +7480,7 @@ fastpath_t vmx_vcpu_run(struct kvm_vcpu *vcpu, bool force_immediate_exit)
 		kvm_machine_check();
 
 	trace_kvm_exit(vcpu, KVM_ISA_VMX);
+	trace_paravirt_vmexit(vcpu->vcpu_id, pid_nr(rcu_dereference(vcpu->pid)));
 
 	if (unlikely(vmx->exit_reason.failed_vmentry))
 		return EXIT_FASTPATH_NONE;

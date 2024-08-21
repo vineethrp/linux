@@ -65,6 +65,8 @@
 
 #include <trace/events/ipi.h>
 #include <trace/events/kvm.h>
+#define CREATE_TRACE_POINTS
+#include <trace/events/kvm_pvsched.h>
 
 #include <asm/debugreg.h>
 #include <asm/msr.h>
@@ -14200,6 +14202,10 @@ int kvm_sev_es_string_io(struct kvm_vcpu *vcpu, unsigned int size,
 }
 EXPORT_SYMBOL_GPL(kvm_sev_es_string_io);
 
+EXPORT_TRACEPOINT_SYMBOL_GPL(paravirt_vmentry);
+EXPORT_TRACEPOINT_SYMBOL_GPL(paravirt_vmexit);
+EXPORT_TRACEPOINT_SYMBOL_GPL(paravirt_vcpu_halt);
+EXPORT_TRACEPOINT_SYMBOL_GPL(paravirt_vcpu_inject_intr);
 EXPORT_TRACEPOINT_SYMBOL_GPL(kvm_entry);
 EXPORT_TRACEPOINT_SYMBOL_GPL(kvm_exit);
 EXPORT_TRACEPOINT_SYMBOL_GPL(kvm_fast_mmio);
