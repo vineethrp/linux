@@ -12,6 +12,7 @@
 #include <linux/sched/debug.h>
 
 #include <uapi/linux/sched/types.h>
+#include <uapi/linux/sched/pvsched.h>
 
 #include "sched.h"
 #include "autogroup.h"
@@ -523,6 +524,42 @@ req_priv:
 	return 0;
 }
 
+static int sched_set_pvsched_shm_addr(struct task_struct *p, unsigned long uaddr)
+{
+	int res;
+	struct page *pvsched_page;
+	union vcpu_sched *sched;
+
+	res = get_user_pages_unlocked(
+		uaddr,
+		1,
+		&pvsched_page,
+		FOLL_WRITE);
+
+	if (res != 1)
+		return -1;
+
+	flush_dcache_page(pvsched_page);
+
+	p->pvsched_shm_addr = page_address(pvsched_page) + (uaddr &~PAGE_MASK);
+	sched = (union vcpu_sched *)(p->pvsched_shm_addr);
+
+	BUG_ON(task_has_dl_policy(p));
+
+	if (task_has_rt_policy(p))
+		sched->host_area.rt_prio = p->rt_priority;
+	else
+		sched->host_area.nice = task_nice(p);
+
+	sched->host_area.sched_policy = p->policy;
+
+	p->pvsched_shm_page = pvsched_page;
+	pr_info("task: %p, uaddr: %lx, kaddr: %p, page: %p, vcpu_id: %u, vcpu_pid: %d\n",
+			p, uaddr, p->pvsched_shm_addr, p->pvsched_shm_page,
+			sched->header.vcpu_id, sched->header.vcpu_pid);
+	return 0;
+}
+
 int __sched_setscheduler(struct task_struct *p,
 			 const struct sched_attr *attr,
 			 bool user, bool pi)
@@ -536,6 +573,11 @@ int __sched_setscheduler(struct task_struct *p,
 	int queue_flags = DEQUEUE_SAVE | DEQUEUE_MOVE | DEQUEUE_NOCLOCK;
 	struct rq *rq;
 	bool cpuset_locked = false;
+
+	if (attr->sched_flags & SCHED_FLAG_PVSCHED_SHM_ADDR) {
+		return sched_set_pvsched_shm_addr(p,
+				attr->sched_pvsched_shm_uaddr);
+	}
 
 	/* The pi code expects interrupts enabled */
 	BUG_ON(pi && in_interrupt());

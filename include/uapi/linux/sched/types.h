@@ -116,6 +116,8 @@ struct sched_attr {
 	__u32 sched_util_min;
 	__u32 sched_util_max;
 
+	__u64 sched_pvsched_shm_uaddr;
+
 };
 
 #endif /* _UAPI_LINUX_SCHED_TYPES_H */

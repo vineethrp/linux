@@ -1591,6 +1591,8 @@ struct task_struct {
 #ifdef CONFIG_USER_EVENTS
 	struct user_event_mm		*user_event_mm;
 #endif
+	void				*pvsched_shm_addr;
+	struct page			*pvsched_shm_page;
 
 	/*
 	 * New fields for task_struct should be added above here, so that

@@ -238,6 +238,16 @@ void __weak release_thread(struct task_struct *dead_task)
 {
 }
 
+static void pvsched_release(struct task_struct *p)
+{
+	if (!p->pvsched_shm_page)
+		return;
+	pr_info("pvsched shm release: task: %p, addr: %p, page: %p\n",
+			p, p->pvsched_shm_addr, p->pvsched_shm_page);
+	put_page(p->pvsched_shm_page);
+	p->pvsched_shm_addr = p->pvsched_shm_page = NULL;
+}
+
 void release_task(struct task_struct *p)
 {
 	struct task_struct *leader;
@@ -249,6 +259,8 @@ repeat:
 	rcu_read_lock();
 	dec_rlimit_ucounts(task_ucounts(p), UCOUNT_RLIMIT_NPROC, 1);
 	rcu_read_unlock();
+
+	pvsched_release(p);
 
 	cgroup_release(p);
 
