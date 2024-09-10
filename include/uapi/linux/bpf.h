@@ -5796,6 +5796,31 @@ union bpf_attr {
  *		0 on success.
  *
  *		**-ENOENT** if the bpf_local_storage cannot be found.
+ * long bpf_get_pvsched(s32 pid_nr)
+ *	Description
+ *		Retreive the pvsched shm address of vcpu
+ *	Return
+ *		0 on success.
+ *
+ *		**-ENOENT** if not a vcpu task
+ * long bpf_process_pvsched(s32 pid_nr)
+ *	Description
+ *		Process the pvsched request.
+ *	Return
+ *		0 on success.
+ *		-1 on failure.
+ * long bpf_process_pvsched_params(s32 pid_nr, u32 sched_policy, s32 nice, u32 rt_prio)
+ *	Description
+ *		Process the pvsched request with specific params.
+ *	Return
+ *		0 on success.
+ *		-1 on failure.
+ * long bpf_set_pvsched_vcpu_status(s32 pid_nr, u32 vcpu_status)
+ *	Description
+ *		set the vcpu_status
+ *	Return
+ *		0 on success.
+ *		-1 on failure.
  */
 #define ___BPF_FUNC_MAPPER(FN, ctx...)			\
 	FN(unspec, 0, ##ctx)				\
@@ -6010,6 +6035,10 @@ union bpf_attr {
 	FN(user_ringbuf_drain, 209, ##ctx)		\
 	FN(cgrp_storage_get, 210, ##ctx)		\
 	FN(cgrp_storage_delete, 211, ##ctx)		\
+	FN(get_pvsched, 212, ##ctx)			\
+	FN(process_pvsched, 213, ##ctx)			\
+	FN(process_pvsched_params, 214, ##ctx)			\
+	FN(set_pvsched_vcpu_status, 215, ##ctx)			\
 	/* */
 
 /* backwards-compatibility macros for users of __BPF_FUNC_MAPPER that don't

@@ -23,6 +23,8 @@
 #include <linux/btf_ids.h>
 #include <linux/bpf_mem_alloc.h>
 #include <linux/kasan.h>
+#include <uapi/linux/sched/types.h>
+#include <uapi/linux/sched/pvsched.h>
 
 #include "../../lib/kstrtox.h"
 
@@ -582,6 +584,143 @@ static const struct bpf_func_proto bpf_strncmp_proto = {
 	.arg1_type	= ARG_PTR_TO_MEM | MEM_RDONLY,
 	.arg2_type	= ARG_CONST_SIZE,
 	.arg3_type	= ARG_PTR_TO_CONST_STR,
+};
+
+BPF_CALL_2(bpf_set_pvsched_vcpu_status, s32, pid_nr, u32, vcpu_status)
+{
+	struct task_struct *p;
+	volatile union vcpu_sched *sched = NULL;
+
+	rcu_read_lock();
+	p = find_task_by_pid_ns(pid_nr, &init_pid_ns);
+	if (p)
+		get_task_struct(p);
+	rcu_read_unlock();
+
+	if (!p) {
+		trace_printk("Failed to get the task from pid(%d)\n", pid_nr);
+		return (u64)-1;
+	}
+	sched = (union vcpu_sched *)(p->pvsched_shm_addr);
+	sched->host_area.vcpu_status = (unsigned char)vcpu_status;
+	put_task_struct(p);
+
+	return (u64)0;
+}
+
+const struct bpf_func_proto bpf_set_pvsched_vcpu_status_proto = {
+	.func		= bpf_set_pvsched_vcpu_status,
+	.gpl_only	= false,
+	.ret_type	= RET_INTEGER,
+	.arg1_type	= ARG_ANYTHING,
+	.arg2_type	= ARG_ANYTHING,
+};
+
+BPF_CALL_1(bpf_get_pvsched, s32, pid_nr)
+{
+	struct task_struct *p;
+	volatile union vcpu_sched *sched = NULL;
+
+	rcu_read_lock();
+	p = find_task_by_pid_ns(pid_nr, &init_pid_ns);
+	if (p)
+		get_task_struct(p);
+	rcu_read_unlock();
+
+	if (!p) {
+		trace_printk("Failed to get the task from pid(%d)\n", pid_nr);
+		return (u64)0;
+	}
+	sched = (union vcpu_sched *)(p->pvsched_shm_addr);
+	put_task_struct(p);
+
+	return (u64)sched;
+}
+
+BTF_ID_LIST(bpf_vcpu_sched)
+BTF_ID(union, vcpu_sched)
+
+const struct bpf_func_proto bpf_get_pvsched_proto = {
+	.func		= bpf_get_pvsched,
+	.gpl_only	= false,
+	.ret_type	= RET_PTR_TO_BTF_ID_OR_NULL,
+	.ret_btf_id	= &bpf_vcpu_sched[0],
+	.arg1_type	= ARG_ANYTHING,
+};
+
+static int __bpf_process_pvsched(s32 pid_nr, struct sched_attr *_attr)
+{
+	int ret;
+	struct task_struct *p;
+	volatile union vcpu_sched *sched;
+	struct sched_attr attr = { 0 };
+
+	rcu_read_lock();
+	p = find_task_by_pid_ns(pid_nr, &init_pid_ns);
+	if (p)
+		get_task_struct(p);
+	rcu_read_unlock();
+
+	if (!p) {
+		trace_printk("Failed to get the task from pid(%d)\n", pid_nr);
+		return -1;
+	}
+	sched = (union vcpu_sched *)(p->pvsched_shm_addr);
+	if (!_attr) {
+		attr.size = sizeof(attr);
+		attr.sched_policy = sched->guest_area.sched_policy;
+		attr.sched_nice = sched->guest_area.nice;
+		attr.sched_priority = sched->guest_area.rt_prio;
+	} else {
+		attr = *_attr;
+	}
+
+	ret = sched_setattr_pi_nocheck(p, &attr, false);
+
+	if (!ret) {
+		sched->host_area.sched_policy = attr.sched_policy;
+		sched->host_area.nice = attr.sched_nice;
+		sched->host_area.rt_prio = attr.sched_priority;
+	} else {
+		trace_printk("Failed to process pvsched for task(%d)\n", pid_nr);
+	}
+	put_task_struct(p);
+
+	return ret;
+}
+
+BPF_CALL_1(bpf_process_pvsched, s32, pid_nr)
+{
+	return __bpf_process_pvsched(pid_nr, NULL);
+}
+
+const struct bpf_func_proto bpf_process_pvsched_proto = {
+	.func		= bpf_process_pvsched,
+	.gpl_only	= false,
+	.ret_type	= RET_INTEGER,
+	.arg1_type	= ARG_ANYTHING,
+};
+
+BPF_CALL_4(bpf_process_pvsched_params, s32, pid_nr, u32, sched_policy, s32, nice, u32, rt_prio)
+{
+	struct sched_attr _attr = {
+		.size = sizeof(_attr),
+		.sched_policy = sched_policy,
+		.sched_nice = nice,
+		.sched_priority = rt_prio,
+	};
+
+	return __bpf_process_pvsched(pid_nr, &_attr);
+}
+
+const struct bpf_func_proto bpf_process_pvsched_params_proto = {
+	.func		= bpf_process_pvsched_params,
+	.gpl_only	= false,
+	.ret_type	= RET_INTEGER,
+	.arg1_type	= ARG_ANYTHING,
+	.arg2_type	= ARG_ANYTHING,
+	.arg3_type	= ARG_ANYTHING,
+	.arg4_type	= ARG_ANYTHING,
 };
 
 BPF_CALL_4(bpf_get_ns_current_pid_tgid, u64, dev, u64, ino,
@@ -1997,6 +2136,14 @@ bpf_base_func_proto(enum bpf_func_id func_id, const struct bpf_prog *prog)
 		return &bpf_get_current_cgroup_id_proto;
 	case BPF_FUNC_get_current_ancestor_cgroup_id:
 		return &bpf_get_current_ancestor_cgroup_id_proto;
+	case BPF_FUNC_get_pvsched:
+		return &bpf_get_pvsched_proto;
+	case BPF_FUNC_process_pvsched:
+		return &bpf_process_pvsched_proto;
+	case BPF_FUNC_process_pvsched_params:
+		return &bpf_process_pvsched_params_proto;
+	case BPF_FUNC_set_pvsched_vcpu_status:
+		return &bpf_set_pvsched_vcpu_status_proto;
 #endif
 	default:
 		break;
