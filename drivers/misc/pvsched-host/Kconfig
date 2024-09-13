@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: GPL-2.0-only
+config PVSCHED_HOST
+	tristate "Paravirt Scheduling host module"
+	help
+	  This driver provides paravirt scheduling policy for guest cabaple of
+	  paravirt scheduling.
+
+	  To compile this driver as a module, choose M here. The module
+	  will be called pvsched-host.
