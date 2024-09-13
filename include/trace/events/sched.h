@@ -850,6 +850,14 @@ TRACE_EVENT(sched_pvsched_vcpu_update,
 );
 #endif /* CONFIG_PARAVIRT_SCHED */
 
+DECLARE_TRACE(pvsched_preempt_status,
+		TP_PROTO(bool preempt_disabled),
+		TP_ARGS(preempt_disabled)
+	     );
+DECLARE_TRACE(pvsched_need_resched,
+		TP_PROTO(struct task_struct *p, struct task_struct *curr),
+		TP_ARGS(p, curr)
+	     );
 #endif /* _TRACE_SCHED_H */
 
 /* This part must be outside protection */

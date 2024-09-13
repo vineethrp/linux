@@ -33,6 +33,7 @@
 
 #include <linux/kvm_para.h>
 
+#include <trace/events/pvsched_guest.h>
 #define CREATE_TRACE_POINTS
 #include <trace/events/irq.h>
 
@@ -533,6 +534,7 @@ static void handle_softirqs(bool ksirqd)
 	in_hardirq = lockdep_softirq_start();
 	account_softirq_enter(current);
 
+	trace_pvsched_kerncs_entry(PVSCHED_KERNCS_SOFTIRQ);
 	if (pv_sched_enabled())
 		pv_sched_vcpu_kerncs_boost_lazy(PVSCHED_KERNCS_BOOST_SOFTIRQ);
 
@@ -582,6 +584,7 @@ restart:
 		wakeup_softirqd();
 	}
 
+	trace_pvsched_kerncs_exit(PVSCHED_KERNCS_SOFTIRQ);
 	if (pv_sched_enabled())
 		pv_sched_vcpu_kerncs_unboost(PVSCHED_KERNCS_BOOST_SOFTIRQ, true);
 

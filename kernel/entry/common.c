@@ -12,6 +12,7 @@
 
 #include "common.h"
 
+#include <trace/events/pvsched_guest.h>
 #define CREATE_TRACE_POINTS
 #include <trace/events/syscalls.h>
 
@@ -184,6 +185,8 @@ static void syscall_exit_to_user_mode_prepare(struct pt_regs *regs)
 
 	CT_WARN_ON(ct_state() != CT_STATE_KERNEL);
 
+	trace_pvsched_exit_to_user(current);
+
 	if (IS_ENABLED(CONFIG_PROVE_LOCKING)) {
 		if (WARN(irqs_disabled(), "syscall %lu left IRQs disabled", nr))
 			local_irq_enable();
@@ -240,6 +243,7 @@ noinstr irqentry_state_t irqentry_enter(struct pt_regs *regs)
 	};
 
 	instrumentation_begin();
+	trace_pvsched_kerncs_entry(PVSCHED_KERNCS_HARDIRQ);
 	if (pv_sched_enabled())
 		pv_sched_vcpu_kerncs_boost_lazy(PVSCHED_KERNCS_BOOST_IRQ);
 	instrumentation_end();
@@ -335,6 +339,7 @@ noinstr void irqentry_exit(struct pt_regs *regs, irqentry_state_t state)
 	lockdep_assert_irqs_disabled();
 
 	instrumentation_begin();
+	trace_pvsched_kerncs_exit(PVSCHED_KERNCS_HARDIRQ);
 	if (pv_sched_enabled())
 		pv_sched_vcpu_kerncs_unboost(PVSCHED_KERNCS_BOOST_IRQ, true);
 	instrumentation_end();
@@ -392,6 +397,7 @@ irqentry_state_t noinstr irqentry_nmi_enter(struct pt_regs *regs)
 	trace_hardirqs_off_finish();
 	ftrace_nmi_enter();
 
+	trace_pvsched_kerncs_entry(PVSCHED_KERNCS_NMI);
 	if (pv_sched_enabled())
 		pv_sched_vcpu_kerncs_boost_lazy(PVSCHED_KERNCS_BOOST_IRQ);
 
@@ -409,6 +415,7 @@ void noinstr irqentry_nmi_exit(struct pt_regs *regs, irqentry_state_t irq_state)
 		lockdep_hardirqs_on_prepare();
 	}
 
+	trace_pvsched_kerncs_exit(PVSCHED_KERNCS_NMI);
 	if (pv_sched_enabled())
 		pv_sched_vcpu_kerncs_unboost(PVSCHED_KERNCS_BOOST_IRQ, true);
 

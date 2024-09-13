@@ -80,6 +80,7 @@
 #include <asm/tlb.h>
 
 #define CREATE_TRACE_POINTS
+#include <trace/events/pvsched_guest.h>
 #include <linux/sched/rseq_api.h>
 #include <trace/events/sched.h>
 #include <trace/events/ipi.h>
@@ -96,6 +97,13 @@
 #include "../workqueue_internal.h"
 #include "../../io_uring/io-wq.h"
 #include "../smpboot.h"
+
+EXPORT_TRACEPOINT_SYMBOL_GPL(pvsched_kerncs_entry);
+EXPORT_TRACEPOINT_SYMBOL_GPL(pvsched_kerncs_exit);
+EXPORT_TRACEPOINT_SYMBOL_GPL(pvsched_exit_to_user);
+
+EXPORT_TRACEPOINT_SYMBOL_GPL(pvsched_preempt_status);
+EXPORT_TRACEPOINT_SYMBOL_GPL(pvsched_need_resched);
 
 EXPORT_TRACEPOINT_SYMBOL_GPL(ipi_send_cpu);
 EXPORT_TRACEPOINT_SYMBOL_GPL(ipi_send_cpumask);
@@ -227,6 +235,10 @@ void pv_sched_vcpu_kerncs_unboost(int boost_type, bool lazy)
  */
 static inline void pv_sched_update_preempt_status(bool preempt_disabled)
 {
+	if (preempt_disabled)
+		trace_pvsched_kerncs_entry(PVSCHED_KERNCS_PREEMPT_DISABLED);
+	else
+		trace_pvsched_kerncs_exit(PVSCHED_KERNCS_PREEMPT_DISABLED);
 	if (!pv_sched_enabled())
 		return;
 
@@ -2241,8 +2253,10 @@ void wakeup_preempt(struct rq *rq, struct task_struct *p, int flags)
 	 * A queue event has occurred, and we're going to schedule.  In
 	 * this case, we can save a useless back to back clock update.
 	 */
-	if (task_on_rq_queued(rq->curr) && test_tsk_need_resched(rq->curr))
+	if (task_on_rq_queued(rq->curr) && test_tsk_need_resched(rq->curr)) {
+		trace_pvsched_need_resched(p, rq->curr);
 		rq_clock_skip_update(rq);
+	}
 }
 
 static __always_inline
@@ -5883,6 +5897,7 @@ static inline void preempt_latency_start(int val)
 		pv_sched_update_preempt_status(true);
 
 		trace_preempt_off(CALLER_ADDR0, get_lock_parent_ip());
+		trace_pvsched_kerncs_entry(PVSCHED_KERNCS_PREEMPT_DISABLED);
 	}
 }
 
@@ -5917,6 +5932,7 @@ static inline void preempt_latency_stop(int val)
 	if (preempt_count() == val) {
 		pv_sched_update_preempt_status(false);
 		trace_preempt_on(CALLER_ADDR0, get_lock_parent_ip());
+		trace_pvsched_kerncs_exit(PVSCHED_KERNCS_PREEMPT_DISABLED);
 	}
 }
 
