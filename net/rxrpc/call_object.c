@@ -50,7 +50,7 @@ void rxrpc_poke_call(struct rxrpc_call *call, enum rxrpc_call_poke_trace what)
 	if (!test_bit(RXRPC_CALL_DISCONNECTED, &call->flags)) {
 		spin_lock_irq(&local->lock);
 		busy = !list_empty(&call->attend_link);
-		trace_rxrpc_poke_call(call, busy, what);
+		trace_invoke_rxrpc_poke_call(call, busy, what);
 		if (!busy && !rxrpc_try_get_call(call, rxrpc_call_get_poke))
 			busy = true;
 		if (!busy) {
@@ -234,7 +234,7 @@ static struct rxrpc_call *rxrpc_alloc_client_call(struct rxrpc_sock *rx,
 
 	rxrpc_set_call_state(call, RXRPC_CALL_CLIENT_AWAIT_CONN);
 
-	trace_rxrpc_call(call->debug_id, refcount_read(&call->ref),
+	trace_invoke_rxrpc_call(call->debug_id, refcount_read(&call->ref),
 			 p->user_call_ID, rxrpc_call_new_client);
 
 	_leave(" = %p", call);
@@ -411,7 +411,7 @@ error_dup_user_ID:
 	write_unlock(&rx->call_lock);
 	release_sock(&rx->sk);
 	rxrpc_prefail_call(call, RXRPC_CALL_LOCAL_ERROR, -EEXIST);
-	trace_rxrpc_call(call->debug_id, refcount_read(&call->ref), 0,
+	trace_invoke_rxrpc_call(call->debug_id, refcount_read(&call->ref), 0,
 			 rxrpc_call_see_userid_exists);
 	mutex_unlock(&call->user_mutex);
 	rxrpc_put_call(call, rxrpc_call_put_userid_exists);
@@ -424,7 +424,7 @@ error_dup_user_ID:
 	 * leave the error to recvmsg() to deal with.
 	 */
 error_attached_to_socket:
-	trace_rxrpc_call(call->debug_id, refcount_read(&call->ref), ret,
+	trace_invoke_rxrpc_call(call->debug_id, refcount_read(&call->ref), ret,
 			 rxrpc_call_see_connect_failed);
 	rxrpc_set_call_completion(call, RXRPC_CALL_LOCAL_ERROR, 0, ret);
 	_leave(" = c=%08x [err]", call->debug_id);
@@ -502,7 +502,7 @@ void rxrpc_see_call(struct rxrpc_call *call, enum rxrpc_call_trace why)
 	if (call) {
 		int r = refcount_read(&call->ref);
 
-		trace_rxrpc_call(call->debug_id, r, 0, why);
+		trace_invoke_rxrpc_call(call->debug_id, r, 0, why);
 	}
 }
 
@@ -513,7 +513,7 @@ struct rxrpc_call *rxrpc_try_get_call(struct rxrpc_call *call,
 
 	if (!call || !__refcount_inc_not_zero(&call->ref, &r))
 		return NULL;
-	trace_rxrpc_call(call->debug_id, r + 1, 0, why);
+	trace_invoke_rxrpc_call(call->debug_id, r + 1, 0, why);
 	return call;
 }
 
@@ -525,7 +525,7 @@ void rxrpc_get_call(struct rxrpc_call *call, enum rxrpc_call_trace why)
 	int r;
 
 	__refcount_inc(&call->ref, &r);
-	trace_rxrpc_call(call->debug_id, r + 1, 0, why);
+	trace_invoke_rxrpc_call(call->debug_id, r + 1, 0, why);
 }
 
 /*
@@ -565,7 +565,7 @@ void rxrpc_release_call(struct rxrpc_sock *rx, struct rxrpc_call *call)
 
 	_enter("{%d,%d}", call->debug_id, refcount_read(&call->ref));
 
-	trace_rxrpc_call(call->debug_id, refcount_read(&call->ref),
+	trace_invoke_rxrpc_call(call->debug_id, refcount_read(&call->ref),
 			 call->flags, rxrpc_call_see_release);
 
 	if (test_and_set_bit(RXRPC_CALL_RELEASED, &call->flags))
@@ -650,7 +650,7 @@ void rxrpc_put_call(struct rxrpc_call *call, enum rxrpc_call_trace why)
 	ASSERT(call != NULL);
 
 	dead = __refcount_dec_and_test(&call->ref, &r);
-	trace_rxrpc_call(debug_id, r - 1, 0, why);
+	trace_invoke_rxrpc_call(debug_id, r - 1, 0, why);
 	if (dead) {
 		ASSERTCMP(__rxrpc_call_state(call), ==, RXRPC_CALL_COMPLETE);
 

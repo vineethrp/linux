@@ -101,7 +101,7 @@ static int rxrpc_service_prealloc_one(struct rxrpc_sock *rx,
 	rxrpc_set_call_state(call, RXRPC_CALL_SERVER_PREALLOC);
 	__set_bit(RXRPC_CALL_EV_INITIAL_PING, &call->events);
 
-	trace_rxrpc_call(call->debug_id, refcount_read(&call->ref),
+	trace_invoke_rxrpc_call(call->debug_id, refcount_read(&call->ref),
 			 user_call_ID, rxrpc_call_new_prealloc_service);
 
 	write_lock(&rx->call_lock);

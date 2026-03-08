@@ -160,7 +160,7 @@ void __rxrpc_disconnect_call(struct rxrpc_connection *conn,
 		/* Save the result of the call so that we can repeat it if necessary
 		 * through the channel, whilst disposing of the actual call record.
 		 */
-		trace_rxrpc_disconnect_call(call);
+		trace_invoke_rxrpc_disconnect_call(call);
 		switch (call->completion) {
 		case RXRPC_CALL_SUCCEEDED:
 			chan->last_seq = call->rx_highest_seq;

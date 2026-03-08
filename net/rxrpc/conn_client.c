@@ -446,7 +446,7 @@ static void rxrpc_activate_one_channel(struct rxrpc_connection *conn,
 	chan->call		= call;
 
 	rxrpc_see_call(call, rxrpc_call_see_connected);
-	trace_rxrpc_connect_call(call);
+	trace_invoke_rxrpc_connect_call(call);
 	call->tx_last_sent = ktime_get_real();
 	rxrpc_start_call_timer(call);
 	rxrpc_set_call_state(call, RXRPC_CALL_CLIENT_SEND_REQUEST);
