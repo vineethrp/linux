@@ -247,13 +247,13 @@ static int msr_update_perf(struct cpufreq_policy *policy, u8 min_perf,
 	if (trace_amd_pstate_epp_perf_enabled()) {
 		union perf_cached perf = READ_ONCE(cpudata->perf);
 
-		trace_amd_pstate_epp_perf(cpudata->cpu,
-					  perf.highest_perf,
-					  epp,
-					  min_perf,
-					  max_perf,
-					  policy->boost_enabled,
-					  value != prev);
+		trace_invoke_amd_pstate_epp_perf(cpudata->cpu,
+					       perf.highest_perf,
+					       epp,
+					       min_perf,
+					       max_perf,
+					       policy->boost_enabled,
+					       value != prev);
 	}
 
 	if (value == prev)
@@ -298,14 +298,14 @@ static int msr_set_epp(struct cpufreq_policy *policy, u8 epp)
 	if (trace_amd_pstate_epp_perf_enabled()) {
 		union perf_cached perf = cpudata->perf;
 
-		trace_amd_pstate_epp_perf(cpudata->cpu, perf.highest_perf,
-					  epp,
-					  FIELD_GET(AMD_CPPC_MIN_PERF_MASK,
-						    cpudata->cppc_req_cached),
-					  FIELD_GET(AMD_CPPC_MAX_PERF_MASK,
-						    cpudata->cppc_req_cached),
-					  policy->boost_enabled,
-					  value != prev);
+		trace_invoke_amd_pstate_epp_perf(cpudata->cpu, perf.highest_perf,
+					       epp,
+					       FIELD_GET(AMD_CPPC_MIN_PERF_MASK,
+							 cpudata->cppc_req_cached),
+					       FIELD_GET(AMD_CPPC_MAX_PERF_MASK,
+							 cpudata->cppc_req_cached),
+					       policy->boost_enabled,
+					       value != prev);
 	}
 
 	if (value == prev)
@@ -343,14 +343,14 @@ static int shmem_set_epp(struct cpufreq_policy *policy, u8 epp)
 	if (trace_amd_pstate_epp_perf_enabled()) {
 		union perf_cached perf = cpudata->perf;
 
-		trace_amd_pstate_epp_perf(cpudata->cpu, perf.highest_perf,
-					  epp,
-					  FIELD_GET(AMD_CPPC_MIN_PERF_MASK,
-						    cpudata->cppc_req_cached),
-					  FIELD_GET(AMD_CPPC_MAX_PERF_MASK,
-						    cpudata->cppc_req_cached),
-					  policy->boost_enabled,
-					  epp != epp_cached);
+		trace_invoke_amd_pstate_epp_perf(cpudata->cpu, perf.highest_perf,
+					       epp,
+					       FIELD_GET(AMD_CPPC_MIN_PERF_MASK,
+							 cpudata->cppc_req_cached),
+					       FIELD_GET(AMD_CPPC_MAX_PERF_MASK,
+							 cpudata->cppc_req_cached),
+					       policy->boost_enabled,
+					       epp != epp_cached);
 	}
 
 	if (epp == epp_cached)
@@ -507,13 +507,13 @@ static int shmem_update_perf(struct cpufreq_policy *policy, u8 min_perf,
 	if (trace_amd_pstate_epp_perf_enabled()) {
 		union perf_cached perf = READ_ONCE(cpudata->perf);
 
-		trace_amd_pstate_epp_perf(cpudata->cpu,
-					  perf.highest_perf,
-					  epp,
-					  min_perf,
-					  max_perf,
-					  policy->boost_enabled,
-					  value != prev);
+		trace_invoke_amd_pstate_epp_perf(cpudata->cpu,
+					       perf.highest_perf,
+					       epp,
+					       min_perf,
+					       max_perf,
+					       policy->boost_enabled,
+					       value != prev);
 	}
 
 	if (value == prev)
@@ -588,9 +588,9 @@ static void amd_pstate_update(struct amd_cpudata *cpudata, u8 min_perf,
 	}
 
 	if (trace_amd_pstate_perf_enabled() && amd_pstate_sample(cpudata)) {
-		trace_amd_pstate_perf(min_perf, des_perf, max_perf, cpudata->freq,
-			cpudata->cur.mperf, cpudata->cur.aperf, cpudata->cur.tsc,
-				cpudata->cpu, fast_switch);
+		trace_invoke_amd_pstate_perf(min_perf, des_perf, max_perf, cpudata->freq,
+					   cpudata->cur.mperf, cpudata->cur.aperf,
+					   cpudata->cur.tsc, cpudata->cpu, fast_switch);
 	}
 
 	amd_pstate_update_perf(policy, min_perf, des_perf, max_perf, 0, fast_switch);

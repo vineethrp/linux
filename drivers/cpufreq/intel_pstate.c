@@ -3130,15 +3130,15 @@ static void intel_cpufreq_trace(struct cpudata *cpu, unsigned int trace_type, in
 		return;
 
 	sample = &cpu->sample;
-	trace_pstate_sample(trace_type,
-		0,
-		old_pstate,
-		cpu->pstate.current_pstate,
-		sample->mperf,
-		sample->aperf,
-		sample->tsc,
-		get_avg_frequency(cpu),
-		fp_toint(cpu->iowait_boost * 100));
+	trace_invoke_pstate_sample(trace_type,
+				 0,
+				 old_pstate,
+				 cpu->pstate.current_pstate,
+				 sample->mperf,
+				 sample->aperf,
+				 sample->tsc,
+				 get_avg_frequency(cpu),
+				 fp_toint(cpu->iowait_boost * 100));
 }
 
 static void intel_cpufreq_hwp_update(struct cpudata *cpu, u32 min, u32 max,

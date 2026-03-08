@@ -1653,7 +1653,7 @@ static void binder_txn_latency_free(struct binder_transaction *t)
 	to_thread = t->to_thread ? t->to_thread->pid : 0;
 	spin_unlock(&t->lock);
 
-	trace_binder_txn_latency_free(t, from_proc, from_thread, to_proc, to_thread);
+	trace_invoke_binder_txn_latency_free(t, from_proc, from_thread, to_proc, to_thread);
 }
 
 static void binder_free_transaction(struct binder_transaction *t)
