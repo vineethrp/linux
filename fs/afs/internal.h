@@ -1399,7 +1399,7 @@ static inline struct afs_call *afs_get_call(struct afs_call *call,
 
 	__refcount_inc(&call->ref, &r);
 
-	trace_afs_call(call->debug_id, why, r + 1,
+	trace_invoke_afs_call(call->debug_id, why, r + 1,
 		       atomic_read(&call->net->nr_outstanding_calls),
 		       __builtin_return_address(0));
 	return call;
@@ -1409,7 +1409,7 @@ static inline void afs_see_call(struct afs_call *call, enum afs_call_trace why)
 {
 	int r = refcount_read(&call->ref);
 
-	trace_afs_call(call->debug_id, why, r,
+	trace_invoke_afs_call(call->debug_id, why, r,
 		       atomic_read(&call->net->nr_outstanding_calls),
 		       __builtin_return_address(0));
 }

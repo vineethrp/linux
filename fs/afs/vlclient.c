@@ -147,7 +147,7 @@ struct afs_vldb_entry *afs_vl_get_entry_by_name_u(struct afs_vl_cursor *vc,
 	if (padsz > 0)
 		memset((void *)bp + volnamesz, 0, padsz);
 
-	trace_afs_make_vl_call(call);
+	trace_invoke_afs_make_vl_call(call);
 	afs_make_call(call, GFP_KERNEL);
 	afs_wait_for_call_to_complete(call);
 	vc->call_abort_code	= call->abort_code;
@@ -296,7 +296,7 @@ struct afs_addr_list *afs_vl_get_addrs_u(struct afs_vl_cursor *vc,
 	for (i = 0; i < 6; i++)
 		r->uuid.node[i] = htonl(u->node[i]);
 
-	trace_afs_make_vl_call(call);
+	trace_invoke_afs_make_vl_call(call);
 	afs_make_call(call, GFP_KERNEL);
 	afs_wait_for_call_to_complete(call);
 	vc->call_abort_code	= call->abort_code;
@@ -414,7 +414,7 @@ struct afs_call *afs_vl_get_capabilities(struct afs_net *net,
 	*bp++ = htonl(VLGETCAPABILITIES);
 
 	/* Can't take a ref on server */
-	trace_afs_make_vl_call(call);
+	trace_invoke_afs_make_vl_call(call);
 	afs_make_call(call, GFP_KERNEL);
 	return call;
 }
@@ -659,7 +659,7 @@ struct afs_addr_list *afs_yfsvl_get_endpoints(struct afs_vl_cursor *vc,
 	*bp++ = htonl(YFS_SERVER_UUID);
 	memcpy(bp, uuid, sizeof(*uuid)); /* Type opr_uuid */
 
-	trace_afs_make_vl_call(call);
+	trace_invoke_afs_make_vl_call(call);
 	afs_make_call(call, GFP_KERNEL);
 	afs_wait_for_call_to_complete(call);
 	vc->call_abort_code	= call->abort_code;
@@ -777,7 +777,7 @@ char *afs_yfsvl_get_cell_name(struct afs_vl_cursor *vc)
 	*bp++ = htonl(YVLGETCELLNAME);
 
 	/* Can't take a ref on server */
-	trace_afs_make_vl_call(call);
+	trace_invoke_afs_make_vl_call(call);
 	afs_make_call(call, GFP_KERNEL);
 	afs_wait_for_call_to_complete(call);
 	vc->call_abort_code	= call->abort_code;

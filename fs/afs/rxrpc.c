@@ -176,7 +176,7 @@ static struct afs_call *afs_alloc_call(struct afs_net *net,
 	call->iter = &call->def_iter;
 
 	o = atomic_inc_return(&net->nr_outstanding_calls);
-	trace_afs_call(call->debug_id, afs_call_trace_alloc, 1, o,
+	trace_invoke_afs_call(call->debug_id, afs_call_trace_alloc, 1, o,
 		       __builtin_return_address(0));
 	return call;
 }
@@ -202,7 +202,7 @@ static void afs_free_call(struct afs_call *call)
 	kfree(call->request);
 
 	o = atomic_read(&net->nr_outstanding_calls);
-	trace_afs_call(call->debug_id, afs_call_trace_free, 0, o,
+	trace_invoke_afs_call(call->debug_id, afs_call_trace_free, 0, o,
 		       __builtin_return_address(0));
 	kfree(call);
 
@@ -223,7 +223,7 @@ void afs_put_call(struct afs_call *call)
 
 	zero = __refcount_dec_and_test(&call->ref, &r);
 	o = atomic_read(&net->nr_outstanding_calls);
-	trace_afs_call(debug_id, afs_call_trace_put, r - 1, o,
+	trace_invoke_afs_call(debug_id, afs_call_trace_put, r - 1, o,
 		       __builtin_return_address(0));
 	if (zero)
 		afs_free_call(call);
@@ -249,7 +249,7 @@ void afs_deferred_put_call(struct afs_call *call)
 
 	zero = __refcount_dec_and_test(&call->ref, &r);
 	o = atomic_read(&net->nr_outstanding_calls);
-	trace_afs_call(debug_id, afs_call_trace_put, r - 1, o,
+	trace_invoke_afs_call(debug_id, afs_call_trace_put, r - 1, o,
 		       __builtin_return_address(0));
 	if (zero)
 		schedule_work(&call->free_work);
@@ -352,7 +352,7 @@ void afs_make_call(struct afs_call *call, gfp_t gfp)
 	       call, call->type->name, key_serial(call->key),
 	       atomic_read(&call->net->nr_outstanding_calls));
 
-	trace_afs_make_call(call);
+	trace_invoke_afs_make_call(call);
 
 	/* Work out the length we're going to transmit.  This is awkward for
 	 * calls such as FS.StoreData where there's an extra injection of data
@@ -694,11 +694,11 @@ static void afs_wake_up_async_call(struct sock *sk, struct rxrpc_call *rxcall,
 	struct afs_call *call = (struct afs_call *)call_user_ID;
 	int r;
 
-	trace_afs_notify_call(rxcall, call);
+	trace_invoke_afs_notify_call(rxcall, call);
 	call->need_attention = true;
 
 	if (__refcount_inc_not_zero(&call->ref, &r)) {
-		trace_afs_call(call->debug_id, afs_call_trace_wake, r + 1,
+		trace_invoke_afs_call(call->debug_id, afs_call_trace_wake, r + 1,
 			       atomic_read(&call->net->nr_outstanding_calls),
 			       __builtin_return_address(0));
 
@@ -822,7 +822,7 @@ static int afs_deliver_cm_op_id(struct afs_call *call)
 							     &call->service_id,
 							     &call->enctype);
 
-	trace_afs_cb_call(call);
+	trace_invoke_afs_cb_call(call);
 	call->work.func = call->type->work;
 
 	/* pass responsibility for the remainder of this message off to the

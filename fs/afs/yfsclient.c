@@ -500,7 +500,7 @@ void yfs_fs_fetch_data(struct afs_operation *op)
 	yfs_check_req(call, bp);
 
 	call->fid = vp->fid;
-	trace_afs_make_fs_call(call, &vp->fid);
+	trace_invoke_afs_make_fs_call(call, &vp->fid);
 	afs_make_op_call(op, call, GFP_NOFS);
 }
 
@@ -1371,7 +1371,7 @@ void yfs_fs_store_data(struct afs_operation *op)
 	yfs_check_req(call, bp);
 
 	call->fid = vp->fid;
-	trace_afs_make_fs_call(call, &vp->fid);
+	trace_invoke_afs_make_fs_call(call, &vp->fid);
 	afs_make_op_call(op, call, GFP_NOFS);
 }
 
@@ -1428,7 +1428,7 @@ static void yfs_fs_setattr_size(struct afs_operation *op)
 	yfs_check_req(call, bp);
 
 	call->fid = vp->fid;
-	trace_afs_make_fs_call(call, &vp->fid);
+	trace_invoke_afs_make_fs_call(call, &vp->fid);
 	afs_make_op_call(op, call, GFP_NOFS);
 }
 
@@ -1467,7 +1467,7 @@ void yfs_fs_setattr(struct afs_operation *op)
 	yfs_check_req(call, bp);
 
 	call->fid = vp->fid;
-	trace_afs_make_fs_call(call, &vp->fid);
+	trace_invoke_afs_make_fs_call(call, &vp->fid);
 	afs_make_op_call(op, call, GFP_NOFS);
 }
 
@@ -1638,7 +1638,7 @@ void yfs_fs_get_volume_status(struct afs_operation *op)
 	yfs_check_req(call, bp);
 
 	call->fid = vp->fid;
-	trace_afs_make_fs_call(call, &vp->fid);
+	trace_invoke_afs_make_fs_call(call, &vp->fid);
 	afs_make_op_call(op, call, GFP_NOFS);
 }
 
@@ -1734,7 +1734,7 @@ void yfs_fs_extend_lock(struct afs_operation *op)
 	yfs_check_req(call, bp);
 
 	call->fid = vp->fid;
-	trace_afs_make_fs_call(call, &vp->fid);
+	trace_invoke_afs_make_fs_call(call, &vp->fid);
 	afs_make_op_call(op, call, GFP_NOFS);
 }
 
@@ -1765,7 +1765,7 @@ void yfs_fs_release_lock(struct afs_operation *op)
 	yfs_check_req(call, bp);
 
 	call->fid = vp->fid;
-	trace_afs_make_fs_call(call, &vp->fid);
+	trace_invoke_afs_make_fs_call(call, &vp->fid);
 	afs_make_op_call(op, call, GFP_NOFS);
 }
 
@@ -1832,7 +1832,7 @@ void yfs_fs_fetch_status(struct afs_operation *op)
 	yfs_check_req(call, bp);
 
 	call->fid = vp->fid;
-	trace_afs_make_fs_call(call, &vp->fid);
+	trace_invoke_afs_make_fs_call(call, &vp->fid);
 	afs_make_op_call(op, call, GFP_NOFS);
 }
 
@@ -2013,7 +2013,7 @@ void yfs_fs_inline_bulk_status(struct afs_operation *op)
 	yfs_check_req(call, bp);
 
 	call->fid = vp->fid;
-	trace_afs_make_fs_call(call, &vp->fid);
+	trace_invoke_afs_make_fs_call(call, &vp->fid);
 	afs_make_op_call(op, call, GFP_NOFS);
 }
 
@@ -2176,7 +2176,7 @@ void yfs_fs_fetch_opaque_acl(struct afs_operation *op)
 	yfs_check_req(call, bp);
 
 	call->fid = vp->fid;
-	trace_afs_make_fs_call(call, &vp->fid);
+	trace_invoke_afs_make_fs_call(call, &vp->fid);
 	afs_make_op_call(op, call, GFP_KERNEL);
 }
 
@@ -2227,6 +2227,6 @@ void yfs_fs_store_opaque_acl2(struct afs_operation *op)
 	yfs_check_req(call, bp);
 
 	call->fid = vp->fid;
-	trace_afs_make_fs_call(call, &vp->fid);
+	trace_invoke_afs_make_fs_call(call, &vp->fid);
 	afs_make_op_call(op, call, GFP_KERNEL);
 }

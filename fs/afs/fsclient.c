@@ -291,7 +291,7 @@ void afs_fs_fetch_status(struct afs_operation *op)
 	bp[3] = htonl(vp->fid.unique);
 
 	call->fid = vp->fid;
-	trace_afs_make_fs_call(call, &vp->fid);
+	trace_invoke_afs_make_fs_call(call, &vp->fid);
 	afs_make_op_call(op, call, GFP_NOFS);
 }
 
@@ -454,7 +454,7 @@ static void afs_fs_fetch_data64(struct afs_operation *op)
 	bp[7] = htonl(lower_32_bits(subreq->len   - subreq->transferred));
 
 	call->fid = vp->fid;
-	trace_afs_make_fs_call(call, &vp->fid);
+	trace_invoke_afs_make_fs_call(call, &vp->fid);
 	afs_make_op_call(op, call, GFP_NOFS);
 }
 
@@ -487,7 +487,7 @@ void afs_fs_fetch_data(struct afs_operation *op)
 	bp[5] = htonl(lower_32_bits(subreq->len   + subreq->transferred));
 
 	call->fid = vp->fid;
-	trace_afs_make_fs_call(call, &vp->fid);
+	trace_invoke_afs_make_fs_call(call, &vp->fid);
 	afs_make_op_call(op, call, GFP_NOFS);
 }
 
@@ -1109,7 +1109,7 @@ static void afs_fs_store_data64(struct afs_operation *op)
 	*bp++ = htonl(lower_32_bits(op->store.i_size));
 
 	call->fid = vp->fid;
-	trace_afs_make_fs_call(call, &vp->fid);
+	trace_invoke_afs_make_fs_call(call, &vp->fid);
 	afs_make_op_call(op, call, GFP_NOFS);
 }
 
@@ -1160,7 +1160,7 @@ void afs_fs_store_data(struct afs_operation *op)
 	*bp++ = htonl(lower_32_bits(op->store.i_size));
 
 	call->fid = vp->fid;
-	trace_afs_make_fs_call(call, &vp->fid);
+	trace_invoke_afs_make_fs_call(call, &vp->fid);
 	afs_make_op_call(op, call, GFP_NOFS);
 }
 
@@ -1227,7 +1227,7 @@ static void afs_fs_setattr_size64(struct afs_operation *op)
 	*bp++ = htonl(lower_32_bits(attr->ia_size));
 
 	call->fid = vp->fid;
-	trace_afs_make_fs_call(call, &vp->fid);
+	trace_invoke_afs_make_fs_call(call, &vp->fid);
 	afs_make_op_call(op, call, GFP_NOFS);
 }
 
@@ -1269,7 +1269,7 @@ static void afs_fs_setattr_size(struct afs_operation *op)
 	*bp++ = htonl(attr->ia_size);		/* new file length */
 
 	call->fid = vp->fid;
-	trace_afs_make_fs_call(call, &vp->fid);
+	trace_invoke_afs_make_fs_call(call, &vp->fid);
 	afs_make_op_call(op, call, GFP_NOFS);
 }
 
@@ -1306,7 +1306,7 @@ void afs_fs_setattr(struct afs_operation *op)
 	xdr_encode_AFS_StoreStatus(&bp, op->setattr.attr);
 
 	call->fid = vp->fid;
-	trace_afs_make_fs_call(call, &vp->fid);
+	trace_invoke_afs_make_fs_call(call, &vp->fid);
 	afs_make_op_call(op, call, GFP_NOFS);
 }
 
@@ -1470,7 +1470,7 @@ void afs_fs_get_volume_status(struct afs_operation *op)
 	bp[1] = htonl(vp->fid.vid);
 
 	call->fid = vp->fid;
-	trace_afs_make_fs_call(call, &vp->fid);
+	trace_invoke_afs_make_fs_call(call, &vp->fid);
 	afs_make_op_call(op, call, GFP_NOFS);
 }
 
@@ -1580,7 +1580,7 @@ void afs_fs_extend_lock(struct afs_operation *op)
 	*bp++ = htonl(vp->fid.unique);
 
 	call->fid = vp->fid;
-	trace_afs_make_fs_call(call, &vp->fid);
+	trace_invoke_afs_make_fs_call(call, &vp->fid);
 	afs_make_op_call(op, call, GFP_NOFS);
 }
 
@@ -1607,7 +1607,7 @@ void afs_fs_release_lock(struct afs_operation *op)
 	*bp++ = htonl(vp->fid.unique);
 
 	call->fid = vp->fid;
-	trace_afs_make_fs_call(call, &vp->fid);
+	trace_invoke_afs_make_fs_call(call, &vp->fid);
 	afs_make_op_call(op, call, GFP_NOFS);
 }
 
@@ -1773,7 +1773,7 @@ bool afs_fs_get_capabilities(struct afs_net *net, struct afs_server *server,
 	bp = call->request;
 	*bp++ = htonl(FSGETCAPABILITIES);
 
-	trace_afs_make_fs_call(call, NULL);
+	trace_invoke_afs_make_fs_call(call, NULL);
 	afs_make_call(call, GFP_NOFS);
 	afs_put_call(call);
 	return true;
@@ -1977,7 +1977,7 @@ void afs_fs_inline_bulk_status(struct afs_operation *op)
 	}
 
 	call->fid = vp->fid;
-	trace_afs_make_fs_call(call, &vp->fid);
+	trace_invoke_afs_make_fs_call(call, &vp->fid);
 	afs_make_op_call(op, call, GFP_NOFS);
 }
 
@@ -2083,7 +2083,7 @@ void afs_fs_fetch_acl(struct afs_operation *op)
 	bp[3] = htonl(vp->fid.unique);
 
 	call->fid = vp->fid;
-	trace_afs_make_fs_call(call, &vp->fid);
+	trace_invoke_afs_make_fs_call(call, &vp->fid);
 	afs_make_op_call(op, call, GFP_KERNEL);
 }
 
@@ -2129,6 +2129,6 @@ void afs_fs_store_acl(struct afs_operation *op)
 		memset((void *)&bp[5] + acl->size, 0, size - acl->size);
 
 	call->fid = vp->fid;
-	trace_afs_make_fs_call(call, &vp->fid);
+	trace_invoke_afs_make_fs_call(call, &vp->fid);
 	afs_make_op_call(op, call, GFP_KERNEL);
 }
