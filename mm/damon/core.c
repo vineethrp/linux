@@ -1935,8 +1935,10 @@ static void damos_apply_scheme(struct damon_ctx *c, struct damon_target *t,
 		if (damos_filter_out(c, t, r, s))
 			return;
 		ktime_get_coarse_ts64(&begin);
-		trace_damos_before_apply(cidx, sidx, tidx, r,
-				damon_nr_regions(t), do_trace);
+		if (do_trace)
+			trace_invoke_damos_before_apply(cidx, sidx, tidx, r,
+						      damon_nr_regions(t),
+						      do_trace);
 		sz_applied = c->ops.apply_scheme(c, t, r, s,
 				&sz_ops_filter_passed);
 		damos_walk_call_walk(c, t, r, s, sz_ops_filter_passed);
@@ -2206,11 +2208,11 @@ static void damos_trace_esz(struct damon_ctx *c, struct damos *s,
 	struct damos *siter;
 
 	damon_for_each_scheme(siter, c) {
-		if (siter == s)
-			break;
-		sidx++;
-	}
-	trace_damos_esz(cidx, sidx, quota->esz);
+	if (siter == s)
+		break;
+	sidx++;
+}
+	trace_invoke_damos_esz(cidx, sidx, quota->esz);
 }
 
 static void damos_adjust_quota(struct damon_ctx *c, struct damos *s)
