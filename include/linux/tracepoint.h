@@ -277,42 +277,69 @@ static inline struct tracepoint *tracepoint_ptr_deref(tracepoint_ptr_t *p)
 
 #define __DECLARE_TRACE(name, proto, args, cond, data_proto)		\
 	__DECLARE_TRACE_COMMON(name, PARAMS(proto), PARAMS(args), PARAMS(data_proto)) \
-	static inline void __do_trace_##name(proto)			\
-	{								\
-		TRACEPOINT_CHECK(name)					\
-		if (cond) {						\
-			guard(preempt_notrace)();			\
-			__DO_TRACE_CALL(name, TP_ARGS(args));		\
-		}							\
-	}								\
-	static inline void trace_##name(proto)				\
-	{								\
-		if (static_branch_unlikely(&__tracepoint_##name.key))	\
-			__do_trace_##name(args);			\
-		if (IS_ENABLED(CONFIG_LOCKDEP) && (cond)) {		\
-			WARN_ONCE(!rcu_is_watching(),			\
-				  "RCU not watching for tracepoint");	\
-		}							\
-	}
+static inline void __do_trace_##name(proto)			\
+{								\
+	TRACEPOINT_CHECK(name)					\
+	if (cond) {						\
+		guard(preempt_notrace)();			\
+		__DO_TRACE_CALL(name, TP_ARGS(args));		\
+	}							\
+}								\
+/*								\
+ * Helper for conditional callers to avoid re-evaluating the	\
+ * static branch while keeping __do_trace_##name() internal.	\
+ */								\
+static inline void trace_invoke_##name(proto)			\
+{								\
+	__do_trace_##name(args);				\
+	if (IS_ENABLED(CONFIG_LOCKDEP) && (cond)) {		\
+		WARN_ONCE(!rcu_is_watching(),			\
+			  "RCU not watching for tracepoint");	\
+	}							\
+}								\
+static inline void trace_##name(proto)				\
+{								\
+	if (static_branch_unlikely(&__tracepoint_##name.key)) {	\
+		__do_trace_##name(args);			\
+	}							\
+	if (IS_ENABLED(CONFIG_LOCKDEP) && (cond)) {		\
+		WARN_ONCE(!rcu_is_watching(),			\
+			  "RCU not watching for tracepoint");	\
+	}							\
+}
 
 #define __DECLARE_TRACE_SYSCALL(name, proto, args, data_proto)		\
 	__DECLARE_TRACE_COMMON(name, PARAMS(proto), PARAMS(args), PARAMS(data_proto)) \
-	static inline void __do_trace_##name(proto)			\
-	{								\
-		TRACEPOINT_CHECK(name)					\
-		guard(rcu_tasks_trace)();				\
-		__DO_TRACE_CALL(name, TP_ARGS(args));			\
-	}								\
-	static inline void trace_##name(proto)				\
-	{								\
-		might_fault();						\
-		if (static_branch_unlikely(&__tracepoint_##name.key))	\
-			__do_trace_##name(args);			\
-		if (IS_ENABLED(CONFIG_LOCKDEP)) {			\
-			WARN_ONCE(!rcu_is_watching(),			\
-				  "RCU not watching for tracepoint");	\
-		}							\
-	}
+static inline void __do_trace_##name(proto)			\
+{								\
+	TRACEPOINT_CHECK(name)					\
+	guard(rcu_tasks_trace)();				\
+	__DO_TRACE_CALL(name, TP_ARGS(args));			\
+}								\
+/*								\
+ * Helper for conditional callers to avoid re-evaluating the	\
+ * static branch while keeping __do_trace_##name() internal.	\
+ */								\
+static inline void trace_invoke_##name(proto)			\
+{								\
+	might_fault();						\
+	__do_trace_##name(args);				\
+	if (IS_ENABLED(CONFIG_LOCKDEP)) {			\
+		WARN_ONCE(!rcu_is_watching(),			\
+			  "RCU not watching for tracepoint");	\
+	}							\
+}								\
+static inline void trace_##name(proto)				\
+{								\
+	might_fault();						\
+	if (static_branch_unlikely(&__tracepoint_##name.key)) {	\
+		__do_trace_##name(args);			\
+	}							\
+	if (IS_ENABLED(CONFIG_LOCKDEP)) {			\
+		WARN_ONCE(!rcu_is_watching(),			\
+			  "RCU not watching for tracepoint");	\
+	}							\
+}
 
 /*
  * We have no guarantee that gcc and the linker won't up-align the tracepoint
