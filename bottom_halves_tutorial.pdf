@@ -1,0 +1,431 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+2 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>
+endobj
+3 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Courier >>
+endobj
+4 0 obj
+<< /Length 3306 >>
+stream
+BT
+/F2 18 Tf 50.0 742.0 Td (Linux Bottom Halves Deep Dive) Tj
+/F1 10 Tf 50.0 714.0 Td () Tj
+/F2 14 Tf 50.0 700.0 Td (Audience and goals) Tj
+/F1 10 Tf 50.0 680.0 Td (This tutorial is for experienced kernel developers who already know interrupts, spinlocks,) Tj
+/F1 10 Tf 50.0 666.0 Td (preemption, and common driver architecture. The focus is the *why* and *how* behind Linux) Tj
+/F1 10 Tf 50.0 652.0 Td (bottom halves: **softirqs, tasklets, and workqueues**, with practical guidance on choosing) Tj
+/F1 10 Tf 50.0 638.0 Td (among them and implementing driver flows correctly.) Tj
+/F1 10 Tf 50.0 624.0 Td () Tj
+/F1 10 Tf 50.0 610.0 Td (--------------------------------------------------------------------------------) Tj
+/F1 10 Tf 50.0 596.0 Td () Tj
+/F2 14 Tf 50.0 582.0 Td (1\) Problem statement: why bottom halves exist) Tj
+/F1 10 Tf 50.0 562.0 Td (A hard IRQ handler \(top half\) runs in a highly constrained context:) Tj
+/F1 10 Tf 60.0 548.0 Td (? local interrupts are masked on that CPU while the handler runs,) Tj
+/F1 10 Tf 60.0 534.0 Td (? it cannot sleep,) Tj
+/F1 10 Tf 60.0 520.0 Td (? latency matters for the whole system.) Tj
+/F1 10 Tf 50.0 506.0 Td () Tj
+/F1 10 Tf 50.0 492.0 Td (So the top half should do only urgent device-ack and minimal bookkeeping, then defer) Tj
+/F1 10 Tf 50.0 478.0 Td (substantial work to a bottom-half mechanism that matches the work's constraints.) Tj
+/F1 10 Tf 50.0 464.0 Td () Tj
+/F1 10 Tf 50.0 450.0 Td (Historically Linux had the old "BH" mechanism, then softirqs/tasklets, and later workqueues) Tj
+/F1 10 Tf 50.0 436.0 Td (grew into the sleepable deferred-execution workhorse.) Tj
+/F1 10 Tf 50.0 422.0 Td () Tj
+/F1 10 Tf 50.0 408.0 Td (--------------------------------------------------------------------------------) Tj
+/F1 10 Tf 50.0 394.0 Td () Tj
+/F2 14 Tf 50.0 380.0 Td (2\) Execution-context taxonomy \(the part that prevents bugs\)) Tj
+/F1 10 Tf 50.0 360.0 Td () Tj
+/F2 12 Tf 50.0 346.0 Td (2.1 Hard IRQ context \(top half\)) Tj
+/F1 10 Tf 60.0 328.0 Td (? Entry from interrupt/exception path.) Tj
+/F1 10 Tf 60.0 314.0 Td (? Cannot sleep.) Tj
+/F1 10 Tf 60.0 300.0 Td (? Must use `GFP_ATOMIC` for emergency allocations.) Tj
+/F1 10 Tf 60.0 286.0 Td (? Should be short and bounded.) Tj
+/F1 10 Tf 50.0 272.0 Td () Tj
+/F2 12 Tf 50.0 258.0 Td (2.2 SoftIRQ context) Tj
+/F1 10 Tf 60.0 240.0 Td (? Runs in interrupt context \(not process context\).) Tj
+/F1 10 Tf 60.0 226.0 Td (? Cannot sleep.) Tj
+/F1 10 Tf 60.0 212.0 Td (? May run:) Tj
+/F1 10 Tf 50.0 198.0 Td (- on return from hard IRQ \(`irq_exit\(\)` path\),) Tj
+/F1 10 Tf 50.0 184.0 Td (- in `ksoftirqd/N` kernel thread fallback when load is high / budgets exceeded.) Tj
+/F1 10 Tf 60.0 170.0 Td (? Per-CPU pending bitmap; same softirq type can run concurrently on multiple CPUs.) Tj
+/F1 10 Tf 50.0 156.0 Td () Tj
+/F2 12 Tf 50.0 142.0 Td (2.3 Tasklet context) Tj
+/F1 10 Tf 60.0 124.0 Td (? Built on top of softirq \(`TASKLET_SOFTIRQ` / `HI_SOFTIRQ`\).) Tj
+/F1 10 Tf 60.0 110.0 Td (? Cannot sleep.) Tj
+/F1 10 Tf 60.0 96.0 Td (? Serialization rule: *same tasklet instance* never runs concurrently on multiple CPUs.) Tj
+/F1 10 Tf 60.0 82.0 Td (? Different tasklets can run in parallel.) Tj
+/F1 10 Tf 60.0 68.0 Td (? Widely considered legacy/de-emphasized in modern kernel development \(prefer workqueues or) Tj
+ET
+endstream
+endobj
+5 0 obj
+<< /Type /Page /Parent 18 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R >> >> /Contents 4 0 R >>
+endobj
+6 0 obj
+<< /Length 3578 >>
+stream
+BT
+/F1 10 Tf 60.0 742.0 Td (  dedicated threaded designs\).) Tj
+/F1 10 Tf 50.0 728.0 Td () Tj
+/F2 12 Tf 50.0 714.0 Td (2.4 Workqueue context) Tj
+/F1 10 Tf 60.0 696.0 Td (? Runs in process context via worker kthreads.) Tj
+/F1 10 Tf 60.0 682.0 Td (? Can sleep, block, and use normal locking primitives that may sleep.) Tj
+/F1 10 Tf 60.0 668.0 Td (? Supports concurrency control, NUMA/cpu affinity hints, delayed work, high-priority, unbound) Tj
+/F1 10 Tf 60.0 654.0 Td (  pools, and memory-reclaim-safe execution.) Tj
+/F1 10 Tf 50.0 640.0 Td () Tj
+/F1 10 Tf 50.0 626.0 Td (--------------------------------------------------------------------------------) Tj
+/F1 10 Tf 50.0 612.0 Td () Tj
+/F2 14 Tf 50.0 598.0 Td (3\) SoftIRQ design and implementation internals) Tj
+/F1 10 Tf 50.0 578.0 Td () Tj
+/F2 12 Tf 50.0 564.0 Td (3.1 Core data model) Tj
+/F1 10 Tf 50.0 546.0 Td (Softirqs are statically defined vectors \(enum index into per-CPU pending bits\). Typical types) Tj
+/F1 10 Tf 50.0 532.0 Td (include `NET_RX_SOFTIRQ`, `NET_TX_SOFTIRQ`, `TIMER_SOFTIRQ`, `RCU_SOFTIRQ`, etc.) Tj
+/F1 10 Tf 50.0 518.0 Td () Tj
+/F1 10 Tf 50.0 504.0 Td (Core pieces:) Tj
+/F1 10 Tf 60.0 490.0 Td (? `open_softirq\(nr, action\)` registers the handler.) Tj
+/F1 10 Tf 60.0 476.0 Td (? `raise_softirq\(nr\)` marks pending.) Tj
+/F1 10 Tf 60.0 462.0 Td (? `__do_softirq\(\)` dispatch loop executes pending handlers with restart budget limits.) Tj
+/F1 10 Tf 50.0 448.0 Td () Tj
+/F2 12 Tf 50.0 434.0 Td (3.2 Dispatch semantics and fairness) Tj
+/F1 10 Tf 50.0 416.0 Td (`__do_softirq\(\)` loops over pending bits and invokes registered handlers. To avoid softirq) Tj
+/F1 10 Tf 50.0 402.0 Td (monopolizing CPU, loop restarts are budgeted \(`MAX_SOFTIRQ_RESTART` style behavior\). If not) Tj
+/F1 10 Tf 50.0 388.0 Td (fully drained quickly, remaining work is punted to `ksoftirqd/N`.) Tj
+/F1 10 Tf 50.0 374.0 Td () Tj
+/F1 10 Tf 50.0 360.0 Td (Consequence: under sustained load, work that "feels interrupt-like" may effectively execute) Tj
+/F1 10 Tf 50.0 346.0 Td (in thread context \(`ksoftirqd`\) but *still under softirq constraints* \(must not sleep\).) Tj
+/F1 10 Tf 50.0 332.0 Td () Tj
+/F2 12 Tf 50.0 318.0 Td (3.3 Preemption and RT considerations) Tj
+/F1 10 Tf 50.0 300.0 Td (On PREEMPT_RT, semantics differ because many traditionally non-threaded paths become) Tj
+/F1 10 Tf 50.0 286.0 Td (threaded/preemptible. Never encode fragile assumptions like "softirq always runs with hard) Tj
+/F1 10 Tf 50.0 272.0 Td (interrupt latency profile"; design for the abstract context guarantees \(sleepable vs non-) Tj
+/F1 10 Tf 50.0 258.0 Td (sleepable, locking rules\), not incidental scheduling behavior.) Tj
+/F1 10 Tf 50.0 244.0 Td () Tj
+/F2 12 Tf 50.0 230.0 Td (3.4 Locking patterns in softirq handlers) Tj
+/F1 10 Tf 60.0 212.0 Td (? Use spinlocks with `_bh` variants when coordinating with process context that may also) Tj
+/F1 10 Tf 60.0 198.0 Td (  touch shared state \(`spin_lock_bh\(\)` / `spin_unlock_bh\(\)`\).) Tj
+/F1 10 Tf 60.0 184.0 Td (? Keep critical sections small.) Tj
+/F1 10 Tf 60.0 170.0 Td (? Avoid lock inversion with hardirq locks.) Tj
+/F1 10 Tf 50.0 156.0 Td () Tj
+/F1 10 Tf 50.0 142.0 Td (--------------------------------------------------------------------------------) Tj
+/F1 10 Tf 50.0 128.0 Td () Tj
+/F2 14 Tf 50.0 114.0 Td (4\) Tasklets: architecture, pros/cons, current stance) Tj
+/F1 10 Tf 50.0 94.0 Td () Tj
+/F1 10 Tf 50.0 80.0 Td (Tasklets wrap softirq with per-tasklet serialization:) Tj
+/F1 10 Tf 60.0 66.0 Td (? scheduled via `tasklet_schedule\(\)` / `tasklet_hi_schedule\(\)`,) Tj
+ET
+endstream
+endobj
+7 0 obj
+<< /Type /Page /Parent 18 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R >> >> /Contents 6 0 R >>
+endobj
+8 0 obj
+<< /Length 3234 >>
+stream
+BT
+/F1 10 Tf 60.0 742.0 Td (? executed from tasklet softirq handler,) Tj
+/F1 10 Tf 60.0 728.0 Td (? safe against self-reentrancy of same tasklet instance.) Tj
+/F1 10 Tf 50.0 714.0 Td () Tj
+/F1 10 Tf 50.0 700.0 Td (Pros:) Tj
+/F1 10 Tf 60.0 686.0 Td (? easy single-instance serialization.) Tj
+/F1 10 Tf 50.0 672.0 Td () Tj
+/F1 10 Tf 50.0 658.0 Td (Cons:) Tj
+/F1 10 Tf 60.0 644.0 Td (? still atomic context \(no sleeping\),) Tj
+/F1 10 Tf 60.0 630.0 Td (? less explicit scalability/concurrency control than workqueues,) Tj
+/F1 10 Tf 60.0 616.0 Td (? subsystem trend is away from tasklets in new code.) Tj
+/F1 10 Tf 50.0 602.0 Td () Tj
+/F1 10 Tf 50.0 588.0 Td (Practical advice: only use when atomic context is truly required and conversion cost/risk is) Tj
+/F1 10 Tf 50.0 574.0 Td (unjustified. For new driver code, prefer workqueues or threaded IRQ + workqueue depending on) Tj
+/F1 10 Tf 50.0 560.0 Td (latency and sleep needs.) Tj
+/F1 10 Tf 50.0 546.0 Td () Tj
+/F1 10 Tf 50.0 532.0 Td (--------------------------------------------------------------------------------) Tj
+/F1 10 Tf 50.0 518.0 Td () Tj
+/F2 14 Tf 50.0 504.0 Td (5\) Workqueue deep dive) Tj
+/F1 10 Tf 50.0 484.0 Td () Tj
+/F2 12 Tf 50.0 470.0 Td (5.1 Why workqueues dominate modern deferred work) Tj
+/F1 10 Tf 50.0 452.0 Td (Workqueues give process context while preserving kernel-managed pooling and backpressure.) Tj
+/F1 10 Tf 50.0 438.0 Td (They avoid spawning ad-hoc kthreads per device and centralize scheduling/accounting.) Tj
+/F1 10 Tf 50.0 424.0 Td () Tj
+/F2 12 Tf 50.0 410.0 Td (5.2 Concepts) Tj
+/F1 10 Tf 60.0 392.0 Td (? **work item**: `struct work_struct` callback.) Tj
+/F1 10 Tf 60.0 378.0 Td (? **delayed work**: timer-backed deferred callback \(`struct delayed_work`\).) Tj
+/F1 10 Tf 60.0 364.0 Td (? **worker pool**: backing kthreads.) Tj
+/F1 10 Tf 60.0 350.0 Td (? **bound vs unbound**:) Tj
+/F1 10 Tf 50.0 336.0 Td (- bound: tends to keep CPU locality,) Tj
+/F1 10 Tf 50.0 322.0 Td (- unbound: favors throughput and flexible placement.) Tj
+/F1 10 Tf 60.0 308.0 Td (? **ordered workqueue**: strict in-order execution \(effectively max-active=1\).) Tj
+/F1 10 Tf 50.0 294.0 Td () Tj
+/F2 12 Tf 50.0 280.0 Td (5.3 API highlights) Tj
+/F1 10 Tf 60.0 262.0 Td (? `alloc_workqueue\(name, flags, max_active, ...\)`) Tj
+/F1 10 Tf 60.0 248.0 Td (? `INIT_WORK\(\)` / `INIT_DELAYED_WORK\(\)`) Tj
+/F1 10 Tf 60.0 234.0 Td (? `queue_work\(\)` / `queue_delayed_work\(\)`) Tj
+/F1 10 Tf 60.0 220.0 Td (? cancellation/teardown: `cancel_work_sync\(\)`, `cancel_delayed_work_sync\(\)`,) Tj
+/F1 10 Tf 60.0 206.0 Td (  `flush_workqueue\(\)`, `destroy_workqueue\(\)`.) Tj
+/F1 10 Tf 50.0 192.0 Td () Tj
+/F2 12 Tf 50.0 178.0 Td (5.4 Flag selection heuristics) Tj
+/F1 10 Tf 60.0 160.0 Td (? `WQ_UNBOUND`: CPU intensive or long blocking tasks that should not pin one CPU.) Tj
+/F1 10 Tf 60.0 146.0 Td (? `WQ_HIGHPRI`: latency-sensitive tasks.) Tj
+/F1 10 Tf 60.0 132.0 Td (? `WQ_MEM_RECLAIM`: needed if work may participate in memory reclaim paths; guarantees) Tj
+/F1 10 Tf 60.0 118.0 Td (  rescuer semantics.) Tj
+/F1 10 Tf 60.0 104.0 Td (? `WQ_FREEZABLE`: cooperate with suspend/freezer.) Tj
+/F1 10 Tf 50.0 90.0 Td () Tj
+/F2 12 Tf 50.0 76.0 Td (5.5 Lifetime and teardown correctness) Tj
+ET
+endstream
+endobj
+9 0 obj
+<< /Type /Page /Parent 18 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R >> >> /Contents 8 0 R >>
+endobj
+10 0 obj
+<< /Length 3209 >>
+stream
+BT
+/F1 10 Tf 50.0 742.0 Td (Most production bugs are here:) Tj
+/F1 10 Tf 60.0 728.0 Td (? Ensure object lifetime exceeds any queued callback.) Tj
+/F1 10 Tf 60.0 714.0 Td (? During remove/unload:) Tj
+/F1 10 Tf 50.0 700.0 Td (1. stop producers \(IRQ/NAPI/timers\),) Tj
+/F1 10 Tf 50.0 686.0 Td (2. cancel/flush queued work synchronously,) Tj
+/F1 10 Tf 50.0 672.0 Td (3. free resources only after callbacks can no longer run.) Tj
+/F1 10 Tf 50.0 658.0 Td () Tj
+/F1 10 Tf 50.0 644.0 Td (--------------------------------------------------------------------------------) Tj
+/F1 10 Tf 50.0 630.0 Td () Tj
+/F2 14 Tf 50.0 616.0 Td (6\) How to choose \(decision matrix\)) Tj
+/F1 10 Tf 50.0 596.0 Td () Tj
+/F1 10 Tf 50.0 582.0 Td (1. **Must sleep \(I2C/SPI transfer with sleep, mutex, firmware load, blocking alloc\)?**) Tj
+/F1 10 Tf 50.0 568.0 Td (- Use **workqueue**.) Tj
+/F1 10 Tf 50.0 554.0 Td (2. **Must run very soon and cannot sleep; high packet/timer style throughput?**) Tj
+/F1 10 Tf 50.0 540.0 Td (- Use **softirq** \(usually only in core subsystems, not random drivers\).) Tj
+/F1 10 Tf 50.0 526.0 Td (3. **Need atomic deferred callback with simple serialization of one instance?**) Tj
+/F1 10 Tf 50.0 512.0 Td (- Tasklet is possible but usually reconsider architecture \(often workqueue is cleaner\).) Tj
+/F1 10 Tf 50.0 498.0 Td (4. **Need threaded handling with device IRQ semantics?**) Tj
+/F1 10 Tf 50.0 484.0 Td (- Consider **threaded IRQ** \(`request_threaded_irq`\) possibly with additional workqueue) Tj
+/F1 10 Tf 50.0 470.0 Td (stages.) Tj
+/F1 10 Tf 50.0 456.0 Td () Tj
+/F1 10 Tf 50.0 442.0 Td (For most new drivers: **top half does minimal ack + queue_work\(\)**.) Tj
+/F1 10 Tf 50.0 428.0 Td () Tj
+/F1 10 Tf 50.0 414.0 Td (--------------------------------------------------------------------------------) Tj
+/F1 10 Tf 50.0 400.0 Td () Tj
+/F2 14 Tf 50.0 386.0 Td (7\) Driver-oriented example \(recommended pattern\)) Tj
+/F1 10 Tf 50.0 366.0 Td () Tj
+/F1 10 Tf 50.0 352.0 Td (Below is a compact, realistic skeleton for a PCI-like device where IRQ top half only captures) Tj
+/F1 10 Tf 50.0 338.0 Td (status and queues work.) Tj
+/F1 10 Tf 50.0 324.0 Td () Tj
+/F3 9 Tf 62.0 310.0 Td (struct foo_dev {) Tj
+/F3 9 Tf 62.0 298.0 Td (    void __iomem *mmio;) Tj
+/F3 9 Tf 62.0 286.0 Td (    int irq;) Tj
+/F3 9 Tf 62.0 274.0 Td ( ) Tj
+/F3 9 Tf 62.0 262.0 Td (    spinlock_t lock;              /* protects fast-path state in irq */) Tj
+/F3 9 Tf 62.0 250.0 Td (    struct workqueue_struct *wq;) Tj
+/F3 9 Tf 62.0 238.0 Td (    struct work_struct irq_work;) Tj
+/F3 9 Tf 62.0 226.0 Td ( ) Tj
+/F3 9 Tf 62.0 214.0 Td (    u32 pending_status;) Tj
+/F3 9 Tf 62.0 202.0 Td (    bool shutting_down;) Tj
+/F3 9 Tf 62.0 190.0 Td (};) Tj
+/F3 9 Tf 62.0 178.0 Td ( ) Tj
+/F3 9 Tf 62.0 166.0 Td (static irqreturn_t foo_irq_handler\(int irq, void *data\)) Tj
+/F3 9 Tf 62.0 154.0 Td ({) Tj
+/F3 9 Tf 62.0 142.0 Td (    struct foo_dev *f = data;) Tj
+/F3 9 Tf 62.0 130.0 Td (    u32 st;) Tj
+/F3 9 Tf 62.0 118.0 Td (    unsigned long flags;) Tj
+/F3 9 Tf 62.0 106.0 Td ( ) Tj
+/F3 9 Tf 62.0 94.0 Td (    st = readl\(f->mmio + FOO_INT_STATUS\);) Tj
+/F3 9 Tf 62.0 82.0 Td (    if \(!st\)) Tj
+/F3 9 Tf 62.0 70.0 Td (        return IRQ_NONE;) Tj
+ET
+endstream
+endobj
+11 0 obj
+<< /Type /Page /Parent 18 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R >> >> /Contents 10 0 R >>
+endobj
+12 0 obj
+<< /Length 2970 >>
+stream
+BT
+/F3 9 Tf 62.0 742.0 Td ( ) Tj
+/F3 9 Tf 62.0 730.0 Td (    /* Ack device quickly to quench interrupt storm. */) Tj
+/F3 9 Tf 62.0 718.0 Td (    writel\(st, f->mmio + FOO_INT_ACK\);) Tj
+/F3 9 Tf 62.0 706.0 Td ( ) Tj
+/F3 9 Tf 62.0 694.0 Td (    spin_lock_irqsave\(&f->lock, flags\);) Tj
+/F3 9 Tf 62.0 682.0 Td (    f->pending_status |= st;) Tj
+/F3 9 Tf 62.0 670.0 Td (    spin_unlock_irqrestore\(&f->lock, flags\);) Tj
+/F3 9 Tf 62.0 658.0 Td ( ) Tj
+/F3 9 Tf 62.0 646.0 Td (    /* defer heavy/sleepable work */) Tj
+/F3 9 Tf 62.0 634.0 Td (    queue_work\(f->wq, &f->irq_work\);) Tj
+/F3 9 Tf 62.0 622.0 Td (    return IRQ_HANDLED;) Tj
+/F3 9 Tf 62.0 610.0 Td (}) Tj
+/F3 9 Tf 62.0 598.0 Td ( ) Tj
+/F3 9 Tf 62.0 586.0 Td (static void foo_irq_workfn\(struct work_struct *work\)) Tj
+/F3 9 Tf 62.0 574.0 Td ({) Tj
+/F3 9 Tf 62.0 562.0 Td (    struct foo_dev *f = container_of\(work, struct foo_dev, irq_work\);) Tj
+/F3 9 Tf 62.0 550.0 Td (    unsigned long flags;) Tj
+/F3 9 Tf 62.0 538.0 Td (    u32 st;) Tj
+/F3 9 Tf 62.0 526.0 Td ( ) Tj
+/F3 9 Tf 62.0 514.0 Td (    spin_lock_irqsave\(&f->lock, flags\);) Tj
+/F3 9 Tf 62.0 502.0 Td (    st = f->pending_status;) Tj
+/F3 9 Tf 62.0 490.0 Td (    f->pending_status = 0;) Tj
+/F3 9 Tf 62.0 478.0 Td (    spin_unlock_irqrestore\(&f->lock, flags\);) Tj
+/F3 9 Tf 62.0 466.0 Td ( ) Tj
+/F3 9 Tf 62.0 454.0 Td (    if \(!st\)) Tj
+/F3 9 Tf 62.0 442.0 Td (        return;) Tj
+/F3 9 Tf 62.0 430.0 Td ( ) Tj
+/F3 9 Tf 62.0 418.0 Td (    if \(st & FOO_INT_RX\)) Tj
+/F3 9 Tf 62.0 406.0 Td (        foo_handle_rx_path\(f\); /* may sleep */) Tj
+/F3 9 Tf 62.0 394.0 Td ( ) Tj
+/F3 9 Tf 62.0 382.0 Td (    if \(st & FOO_INT_TX\)) Tj
+/F3 9 Tf 62.0 370.0 Td (        foo_complete_tx\(f\);    /* may sleep */) Tj
+/F3 9 Tf 62.0 358.0 Td ( ) Tj
+/F3 9 Tf 62.0 346.0 Td (    if \(st & FOO_INT_ERR\)) Tj
+/F3 9 Tf 62.0 334.0 Td (        foo_recover\(f\);        /* may sleep, maybe reset device */) Tj
+/F3 9 Tf 62.0 322.0 Td (}) Tj
+/F3 9 Tf 62.0 310.0 Td ( ) Tj
+/F3 9 Tf 62.0 298.0 Td (static int foo_probe\(...\)) Tj
+/F3 9 Tf 62.0 286.0 Td ({) Tj
+/F3 9 Tf 62.0 274.0 Td (    ...) Tj
+/F3 9 Tf 62.0 262.0 Td (    spin_lock_init\(&f->lock\);) Tj
+/F3 9 Tf 62.0 250.0 Td (    INIT_WORK\(&f->irq_work, foo_irq_workfn\);) Tj
+/F3 9 Tf 62.0 238.0 Td ( ) Tj
+/F3 9 Tf 62.0 226.0 Td (    f->wq = alloc_workqueue\("foo_wq", WQ_UNBOUND | WQ_MEM_RECLAIM, 0\);) Tj
+/F3 9 Tf 62.0 214.0 Td (    if \(!f->wq\)) Tj
+/F3 9 Tf 62.0 202.0 Td (        return -ENOMEM;) Tj
+/F3 9 Tf 62.0 190.0 Td ( ) Tj
+/F3 9 Tf 62.0 178.0 Td (    ret = request_irq\(f->irq, foo_irq_handler, IRQF_SHARED, "foo", f\);) Tj
+/F3 9 Tf 62.0 166.0 Td (    if \(ret\)) Tj
+/F3 9 Tf 62.0 154.0 Td (        goto err_destroy_wq;) Tj
+/F3 9 Tf 62.0 142.0 Td ( ) Tj
+/F3 9 Tf 62.0 130.0 Td (    ...) Tj
+/F3 9 Tf 62.0 118.0 Td (    return 0;) Tj
+/F3 9 Tf 62.0 106.0 Td ( ) Tj
+/F3 9 Tf 62.0 94.0 Td (err_destroy_wq:) Tj
+/F3 9 Tf 62.0 82.0 Td (    destroy_workqueue\(f->wq\);) Tj
+/F3 9 Tf 62.0 70.0 Td (    return ret;) Tj
+ET
+endstream
+endobj
+13 0 obj
+<< /Type /Page /Parent 18 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R >> >> /Contents 12 0 R >>
+endobj
+14 0 obj
+<< /Length 3124 >>
+stream
+BT
+/F3 9 Tf 62.0 742.0 Td (}) Tj
+/F3 9 Tf 62.0 730.0 Td ( ) Tj
+/F3 9 Tf 62.0 718.0 Td (static void foo_remove\(...\)) Tj
+/F3 9 Tf 62.0 706.0 Td ({) Tj
+/F3 9 Tf 62.0 694.0 Td (    ...) Tj
+/F3 9 Tf 62.0 682.0 Td (    free_irq\(f->irq, f\);) Tj
+/F3 9 Tf 62.0 670.0 Td ( ) Tj
+/F3 9 Tf 62.0 658.0 Td (    /* Ensure no queued callbacks are still running. */) Tj
+/F3 9 Tf 62.0 646.0 Td (    cancel_work_sync\(&f->irq_work\);) Tj
+/F3 9 Tf 62.0 634.0 Td (    destroy_workqueue\(f->wq\);) Tj
+/F3 9 Tf 62.0 622.0 Td (    ...) Tj
+/F3 9 Tf 62.0 610.0 Td (}) Tj
+/F1 10 Tf 50.0 598.0 Td () Tj
+/F2 12 Tf 50.0 584.0 Td (Why this pattern works) Tj
+/F1 10 Tf 60.0 566.0 Td (? IRQ handler is bounded and deterministic.) Tj
+/F1 10 Tf 60.0 552.0 Td (? Sleepable operations are moved out of atomic context.) Tj
+/F1 10 Tf 60.0 538.0 Td (? Teardown uses `cancel_work_sync\(\)` to close use-after-free races.) Tj
+/F1 10 Tf 50.0 524.0 Td () Tj
+/F2 12 Tf 50.0 510.0 Td (Common variations) Tj
+/F1 10 Tf 60.0 492.0 Td (? If RX path is high-throughput networking, integrate **NAPI** instead of generic workqueue.) Tj
+/F1 10 Tf 60.0 478.0 Td (? If latency-critical tiny follow-up is atomic-only, use per-CPU data + softirq-like patterns) Tj
+/F1 10 Tf 60.0 464.0 Td (  in core stacks.) Tj
+/F1 10 Tf 60.0 450.0 Td (? For periodic polling fallback, pair with delayed work.) Tj
+/F1 10 Tf 50.0 436.0 Td () Tj
+/F1 10 Tf 50.0 422.0 Td (--------------------------------------------------------------------------------) Tj
+/F1 10 Tf 50.0 408.0 Td () Tj
+/F2 14 Tf 50.0 394.0 Td (8\) Typical bugs and anti-patterns) Tj
+/F1 10 Tf 50.0 374.0 Td () Tj
+/F1 10 Tf 50.0 360.0 Td (1. **Sleeping in softirq/tasklet**) Tj
+/F1 10 Tf 50.0 346.0 Td (- e.g., taking mutex, blocking I/O, `msleep\(\)`.) Tj
+/F1 10 Tf 50.0 332.0 Td (2. **Using `GFP_KERNEL` in atomic context**) Tj
+/F1 10 Tf 50.0 318.0 Td (- use preallocation/mempools or `GFP_ATOMIC` when unavoidable.) Tj
+/F1 10 Tf 50.0 304.0 Td (3. **Forgetting teardown synchronization**) Tj
+/F1 10 Tf 50.0 290.0 Td (- freeing device state before `cancel_work_sync\(\)`/`flush_workqueue\(\)`.) Tj
+/F1 10 Tf 50.0 276.0 Td (4. **Excessive work in hard IRQ**) Tj
+/F1 10 Tf 50.0 262.0 Td (- causes interrupt latency spikes.) Tj
+/F1 10 Tf 50.0 248.0 Td (5. **Incorrect lock pairing across contexts**) Tj
+/F1 10 Tf 50.0 234.0 Td (- process context vs softirq/hardirq mismatch.) Tj
+/F1 10 Tf 50.0 220.0 Td () Tj
+/F1 10 Tf 50.0 206.0 Td (--------------------------------------------------------------------------------) Tj
+/F1 10 Tf 50.0 192.0 Td () Tj
+/F2 14 Tf 50.0 178.0 Td (9\) Observability and debugging toolbox) Tj
+/F1 10 Tf 50.0 158.0 Td () Tj
+/F1 10 Tf 60.0 144.0 Td (? `/proc/softirqs`: per-CPU softirq counters.) Tj
+/F1 10 Tf 60.0 130.0 Td (? ftrace / tracepoints:) Tj
+/F1 10 Tf 50.0 116.0 Td (- `irq:*`, `softirq:*`, `workqueue:*` events.) Tj
+/F1 10 Tf 60.0 102.0 Td (? lockdep: catches locking misuse across irq/bh/process contexts.) Tj
+/F1 10 Tf 60.0 88.0 Td (? `CONFIG_DEBUG_OBJECTS_WORK`: detects workqueue lifecycle misuse.) Tj
+/F1 10 Tf 60.0 74.0 Td (? `perf sched` and trace-cmd: latency and scheduling analysis.) Tj
+ET
+endstream
+endobj
+15 0 obj
+<< /Type /Page /Parent 18 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R >> >> /Contents 14 0 R >>
+endobj
+16 0 obj
+<< /Length 1537 >>
+stream
+BT
+/F1 10 Tf 50.0 742.0 Td () Tj
+/F1 10 Tf 50.0 728.0 Td (Debug strategy:) Tj
+/F1 10 Tf 50.0 714.0 Td (1. Validate context assumptions \(`might_sleep\(\)` splats are your friend\).) Tj
+/F1 10 Tf 50.0 700.0 Td (2. Instrument enqueue/dequeue/execute timestamps.) Tj
+/F1 10 Tf 50.0 686.0 Td (3. Stress remove/unload paths concurrently with interrupts.) Tj
+/F1 10 Tf 50.0 672.0 Td () Tj
+/F1 10 Tf 50.0 658.0 Td (--------------------------------------------------------------------------------) Tj
+/F1 10 Tf 50.0 644.0 Td () Tj
+/F2 14 Tf 50.0 630.0 Td (10\) Modern guidance summary) Tj
+/F1 10 Tf 60.0 610.0 Td (? Prefer **workqueues** for most driver deferred work.) Tj
+/F1 10 Tf 60.0 596.0 Td (? Keep hard IRQ handlers tiny.) Tj
+/F1 10 Tf 60.0 582.0 Td (? Treat **tasklets** as legacy unless there's strong reason.) Tj
+/F1 10 Tf 60.0 568.0 Td (? Use **softirqs** mostly in subsystem/core code requiring high-performance atomic deferred) Tj
+/F1 10 Tf 60.0 554.0 Td (  execution.) Tj
+/F1 10 Tf 60.0 540.0 Td (? Design teardown first; it defines correctness under stress.) Tj
+/F1 10 Tf 50.0 526.0 Td () Tj
+/F1 10 Tf 50.0 512.0 Td (If you want, next step I can generate:) Tj
+/F1 10 Tf 50.0 498.0 Td (1. a **real, buildable mini kernel module** \(with Kconfig/Makefile\) implementing this) Tj
+/F1 10 Tf 50.0 484.0 Td (pattern,) Tj
+/F1 10 Tf 50.0 470.0 Td (2. a **trace-based lab** script to observe hardirq?softirq/workqueue transitions,) Tj
+/F1 10 Tf 50.0 456.0 Td (3. or a **PREEMPT_RT-specific variant** of the design and locking rules.) Tj
+ET
+endstream
+endobj
+17 0 obj
+<< /Type /Page /Parent 18 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R >> >> /Contents 16 0 R >>
+endobj
+18 0 obj
+<< /Type /Pages /Count 7 /Kids [ 5 0 R 7 0 R 9 0 R 11 0 R 13 0 R 15 0 R 17 0 R ] >>
+endobj
+19 0 obj
+<< /Type /Catalog /Pages 18 0 R >>
+endobj
+xref
+0 20
+0000000000 65535 f 
+0000000009 00000 n 
+0000000079 00000 n 
+0000000154 00000 n 
+0000000222 00000 n 
+0000003580 00000 n 
+0000003727 00000 n 
+0000007357 00000 n 
+0000007504 00000 n 
+0000010790 00000 n 
+0000010937 00000 n 
+0000014199 00000 n 
+0000014348 00000 n 
+0000017371 00000 n 
+0000017520 00000 n 
+0000020697 00000 n 
+0000020846 00000 n 
+0000022436 00000 n 
+0000022585 00000 n 
+0000022685 00000 n 
+trailer
+<< /Size 20 /Root 19 0 R >>
+startxref
+22736
+%%EOF
